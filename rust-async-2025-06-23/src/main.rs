@@ -11,13 +11,16 @@ async fn say_hello() {
 
 async fn say_world() {
     sleep(Duration::from_millis(100)).await;
-    println!("world!");
+    println!("world");
 }
 
 #[tokio::main]
 async fn main() {
-    spawn(say_hello());
-    spawn(say_world());
-    // Wait for a while to give the tasks time to run.
-    sleep(Duration::from_millis(1000)).await;
+    let handle1 = spawn(say_hello());
+    let handle2 = spawn(say_world());
+
+    let _ = handle1.await;
+    let _ = handle2.await;
+
+    println!("!");
 }

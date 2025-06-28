@@ -1,0 +1,13 @@
+{
+  "folders": [
+    {
+      "path": "."
+    },
+  ],
+  "settings": {
+    // ファイルブラウザには表示するが、検索から除外する
+    "search.exclude": {
+      // "**/.venv/*": true
+    },
+  }
+}

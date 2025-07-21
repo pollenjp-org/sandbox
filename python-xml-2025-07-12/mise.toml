@@ -1,2 +1,12 @@
 [tools]
 uv = "0.7.20"
+
+[tasks.run_xml]
+run = '''
+uv run main_xml.py
+'''
+
+[tasks.run_html]
+run = '''
+uv run main_html.py
+'''

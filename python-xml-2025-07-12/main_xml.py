@@ -20,14 +20,13 @@ def extract_all_text_from_xml(xml_string):
     return texts
 
 
-# 例
-xml_data = """
-<div id="description" class="disable-copy">
-<p>some</p>
-<p>text</p>
-</div>
-"""
+def main():
+    with open("sample.xml", "r", encoding="utf-8") as f:
+        xml_data = f.read()
 
-result = extract_all_text_from_xml(xml_data)
-# print("\n".join(result))
-print("".join(result))
+    result = extract_all_text_from_xml(xml_data)
+    # print("\n".join(result))
+    print("".join(result))
+
+
+main()

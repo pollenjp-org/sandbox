@@ -1,0 +1,7 @@
+[tools]
+cargo-binstall = "1.14.2"
+"cargo:rhai" = "1.22.2"
+rust = "1.88.0"
+
+[tasks.run1]
+run = "rhai-run ./sample1.rhai"

@@ -1,0 +1,9 @@
+[package]
+name = "rust-file-not-found-2025-08-08"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.87.0"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"

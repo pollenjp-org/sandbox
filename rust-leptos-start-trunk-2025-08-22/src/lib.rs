@@ -27,8 +27,10 @@ pub fn App() -> impl IntoView {
 
         <Router>
             <Routes fallback=|| view! { NotFound }>
-                <Route path=path!("/") view=Home />
-                <Route path=path!("/home") view=Home />
+                <ParentRoute path=path!("/sandbox") view=Home> // what is this 'view'?
+                    <Route path=path!("") view=Home />
+                    <Route path=path!("home") view=Home />
+                </ParentRoute>
             </Routes>
         </Router>
     }

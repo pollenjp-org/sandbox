@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <!-- Add a plain CSS file: see https://trunkrs.dev/assets/#css -->
+  <!-- If using Tailwind with Leptos CSR, see https://trunkrs.dev/assets/#tailwind instead-->
+  <link rel="stylesheet" href="/sandbox/styles-b5eb075cb5908791.css" integrity="sha384-z81odaZQ6a5WhRrkbxOfk6unNzh76wIzcnOsVEZrWICZlAB3CP0qZHEFT9ZauTJb"/>
+
+  <!-- Include favicon in dist output: see https://trunkrs.dev/assets/#icon -->
+  <link rel="icon" href="/sandbox/favicon-e9cbd8f50cc65bf2.ico" integrity="sha384-YobgLXwtz0GhXVUTHml49p32guapVFlEG8UpQdDVN3kekOqkQi+qSXEpwp+yM4BW"/>
+
+  <!-- include support for `wasm-bindgen --weak-refs` - see: https://rustwasm.github.io/docs/wasm-bindgen/reference/weak-references.html -->
+  
+<script type="module">
+import init, * as bindings from '/sandbox/rust-leptos-start-trunk-2025-08-22-2ab781861c105e8c.js';
+const wasm = await init({ module_or_path: '/sandbox/rust-leptos-start-trunk-2025-08-22-2ab781861c105e8c_bg.wasm' });
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+
+</script>
+<link rel="modulepreload" href="/sandbox/rust-leptos-start-trunk-2025-08-22-2ab781861c105e8c.js" crossorigin="anonymous" integrity="sha384-fDEK+GmuQTZu6BegBREfQ44SckkU4Vco1+10a+iuKQpE+g4l7dRHDbgHmWXNg5fA"><link rel="preload" href="/sandbox/rust-leptos-start-trunk-2025-08-22-2ab781861c105e8c_bg.wasm" crossorigin="anonymous" integrity="sha384-z3+EdvSqdU7V9EBel8bbz0ecxx8GuWX8I5M6Lg8y83g/R4vEDFswQrznSw/9Fav9" as="fetch" type="application/wasm"></head>
+
+<body></body>
+
+</html>

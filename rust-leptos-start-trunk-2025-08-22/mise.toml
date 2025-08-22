@@ -16,6 +16,12 @@ trunk serve
 '''
 depends = ['requirements']
 
+[tasks.build]
+run = '''
+trunk build --release --dist 'dist-release'
+'''
+depends = ['requirements']
+
 [tasks.fmt]
 run = '''
 #!/usr/bin/env bash

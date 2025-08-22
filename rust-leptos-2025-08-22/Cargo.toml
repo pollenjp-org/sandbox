@@ -4,4 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-leptos = { version = "0.8.3", features = ["csr"] }
+console_error_panic_hook = "0.1"
+console_log = { version = "1", features = ["color"] }
+leptos = { version = "0.8", features = ["csr"] }
+log = "0.4"

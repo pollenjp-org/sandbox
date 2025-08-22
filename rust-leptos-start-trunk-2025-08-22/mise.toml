@@ -3,4 +3,25 @@ cargo-binstall = "1.14.4"
 "cargo:cargo-generate" = "0.23.4"
 "cargo:leptosfmt" = "0.1.33"
 "cargo:trunk" = "0.21.14"
-rust = "1.87.0"
+rust = "1.88.0"
+
+[tasks.requirements]
+run = '''
+rustup target add wasm32-unknown-unknown
+'''
+
+[tasks.dev]
+run = '''
+trunk serve
+'''
+depends = ['requirements']
+
+[tasks.fmt]
+run = '''
+#!/usr/bin/env bash
+set -eux -o pipefail
+
+cargo fmt --all
+leptosfmt ./**/*.rs
+'''
+depends = ['requirements']

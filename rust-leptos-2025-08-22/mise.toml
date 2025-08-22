@@ -2,3 +2,13 @@
 cargo-binstall = "1.14.4"
 "cargo:trunk" = "0.21.14"
 rust = "1.87.0"
+
+[tasks.requirements]
+run = '''
+rustup target add wasm32-unknown-unknown
+'''
+
+[tasks.dev]
+run = '''
+trunk serve --open
+'''

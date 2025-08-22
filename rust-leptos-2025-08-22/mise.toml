@@ -1,0 +1,4 @@
+[tools]
+cargo-binstall = "1.14.4"
+"cargo:trunk" = "0.21.14"
+rust = "1.87.0"

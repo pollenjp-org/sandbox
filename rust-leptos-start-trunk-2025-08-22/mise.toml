@@ -1,0 +1,6 @@
+[tools]
+cargo-binstall = "1.14.4"
+"cargo:cargo-generate" = "0.23.4"
+"cargo:leptosfmt" = "0.1.33"
+"cargo:trunk" = "0.21.14"
+rust = "1.87.0"

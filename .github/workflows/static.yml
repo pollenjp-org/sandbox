@@ -37,7 +37,8 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           # Upload entire repository
-          path: './vite-2025-07-24/vite-project/dist'
+          # path: './vite-2025-07-24/vite-project/dist'
+          path: './rust-leptos-start-trunk-2025-08-22/dist-release'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

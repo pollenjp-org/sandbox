@@ -1,0 +1,32 @@
+[tools]
+"aqua:hashicorp/terraform" = "1.14.3"
+gcloud = "553.0.0"
+
+[tasks."tf-init"]
+description = "Initialize terraform in current directory with backend config"
+dir = "{{cwd}}"
+run = 'terraform init -backend-config="${MISE_CONFIG_ROOT:?}/backend.hcl"'
+
+[tasks."tf-apply"]
+description = "Apply terraform in current directory"
+dir = "{{cwd}}"
+run = 'terraform apply'
+
+[tasks.fmt]
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+
+git ls-files --exclude-standard -co \
+  | xargs -I{} find {} -maxdepth 0 -type f \
+  | \grep -E 'main\.tf$' \
+  | xargs -rI{} bash -c '
+set -euo pipefail
+each_root=$(dirname "${1}")
+
+pushd "${each_root}" >/dev/null
+terraform fmt
+echo "${each_root} was formatted!"
+popd >/dev/null
+' _ {}
+'''

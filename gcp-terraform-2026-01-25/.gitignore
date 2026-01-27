@@ -1,2 +1,5 @@
 .terraform/
 *.tfstate*
+
+# vscode
+!/*.code-workspace

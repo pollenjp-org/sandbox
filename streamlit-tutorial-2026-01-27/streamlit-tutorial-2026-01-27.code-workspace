@@ -1,0 +1,12 @@
+{
+  "folders": [
+    {
+      "path": "."
+    },
+    {
+      "name": "repo-root",
+      "path": "../"
+    }
+  ],
+  "settings": { }
+}

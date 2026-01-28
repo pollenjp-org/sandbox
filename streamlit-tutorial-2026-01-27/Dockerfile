@@ -26,4 +26,4 @@ COPY . .
 
 ENV PATH="/app/.venv/bin:$PATH"
 
-CMD ["streamlit", "run", "main.py"]
+CMD ["streamlit", "run", "main.py", "--server.port", "8501", "--server.address", "0.0.0.0"]

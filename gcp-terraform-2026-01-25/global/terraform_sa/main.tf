@@ -9,9 +9,19 @@ resource "google_service_account" "terraform_sa" {
 }
 
 # grant roles/storage.admin to the service account
-resource "google_project_iam_member" "sa_storage_admin" {
+resource "google_project_iam_member" "sa_roles" {
+  for_each = toset([
+    "roles/storage.admin",                   # tfstate 等の bucket 管理
+    "roles/run.admin",                      # Cloud Run サービスの作成・更新・削除。
+    "roles/cloudbuild.builds.editor",        # Cloud Build トリガーの作成・更新。
+    "roles/artifactregistry.admin",          # Artifact Registry リポジトリの管理。
+    "roles/serviceusage.serviceUsageAdmin",  # Terraform から必要な Google Cloud API を有効化（google_project_service）するために必要。
+    "roles/resourcemanager.projectIamAdmin", # Cloud Build や Cloud Run に対する IAM 権限（google_project_iam_member 等）を設定するために必要。
+    "roles/iam.serviceAccountUser",          # Cloud Run サービスに実行用のサービスアカウントを割り当てるために必要。
+  ])
+
   project = local.project_id
-  role    = "roles/storage.admin"
+  role    = each.value
   member  = "serviceAccount:${google_service_account.terraform_sa.email}"
 }
 
@@ -23,3 +33,15 @@ resource "google_service_account_iam_member" "allow_impersonation" {
   role               = "roles/iam.serviceAccountTokenCreator"
   member             = "user:${each.value}"
 }
+
+# resource "google_project_iam_member" "check_iam_user_role" {
+#   for_each = toset([
+#     "roles/cloudbuild.builds.viewer",
+#     # https://docs.cloud.google.com/iam/docs/roles-permissions/cloudbuild#cloudbuild.connectionAdmin
+#     "roles/cloudbuild.connectionAdmin",
+#   ])
+
+#   project = local.project_id
+#   role    = each.value
+#   member  = "user:dummysakiaki@gmail.com"
+# }

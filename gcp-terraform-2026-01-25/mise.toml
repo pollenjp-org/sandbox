@@ -5,7 +5,12 @@ gcloud = "553.0.0"
 [tasks."tf-init"]
 description = "Initialize terraform in current directory with backend config"
 dir = "{{cwd}}"
-run = 'terraform init -backend-config="${MISE_CONFIG_ROOT:?}/backend.hcl"'
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+
+terraform init -backend-config="${MISE_CONFIG_ROOT:?}/backend.hcl" "${@}"
+'''
 
 [tasks."tf-apply"]
 description = "Apply terraform in current directory"

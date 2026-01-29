@@ -12,21 +12,16 @@
 #   - create trigger
 #     - SA & policy settings
 
-data "google_project" "project" {
-}
-
 locals {
   location = "asia-northeast1"
   app_name = "streamlit-tutorial"
   app_port_num = 8501
   image_name = "streamlit-tutorial"
+  target_repo_url = "${google_artifact_registry_repository.repo.location}-docker.pkg.dev/${google_artifact_registry_repository.repo.project}/${google_artifact_registry_repository.repo.repository_id}"
 }
 
-# resource "time_sleep" "wait_30_seconds" {
-#   depends_on = [google_project.my_project]
-
-#   create_duration = "30s"
-# }
+data "google_project" "project" {
+}
 
 resource "google_project_service" "enabled_services" {
   for_each = toset([
@@ -126,7 +121,9 @@ resource "google_cloudbuild_trigger" "streamlit_trigger" {
 }
 
 resource "google_cloud_run_v2_service" "streamlit" {
-  depends_on = [google_project_service.enabled_services]
+  depends_on = [
+    google_project_service.enabled_services,
+  ]
   name     = local.app_name
   location = local.location
   ingress  = "INGRESS_TRAFFIC_ALL"
@@ -162,15 +159,12 @@ resource "google_cloud_run_v2_service_iam_member" "cloudbuild_run_admin" {
   member   = "serviceAccount:${google_service_account.cloudbuild_builder.email}"
 }
 
-# Cloud Build が、Cloud Run の実行用 SA (streamlit_runtime_sa) を使用してデプロイできるようにする
-# プロジェクト全体ではなく、特定の SA に対してのみ権限を与えることでセキュリティを高める
 resource "google_service_account_iam_member" "cloudbuild_is_sa_user" {
   service_account_id = google_service_account.streamlit_runtime_sa.name
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${google_service_account.cloudbuild_builder.email}"
 }
 
-# プロジェクト全体ではなく、特定のリポジトリに対してのみプッシュ権限を与える
 resource "google_artifact_registry_repository_iam_member" "cloudbuild_registry_writer" {
   location   = google_artifact_registry_repository.repo.location
   repository = google_artifact_registry_repository.repo.name

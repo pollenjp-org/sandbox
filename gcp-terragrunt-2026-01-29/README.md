@@ -5,15 +5,13 @@
 - [Preparation](#preparation)
   - [ローカルの gcloud 設定](#%E3%83%AD%E3%83%BC%E3%82%AB%E3%83%AB%E3%81%AE-gcloud-%E8%A8%AD%E5%AE%9A)
   - [root.hcl にプロジェクト ID を設定する](#roothcl-%E3%81%AB%E3%83%97%E3%83%AD%E3%82%B8%E3%82%A7%E3%82%AF%E3%83%88-id-%E3%82%92%E8%A8%AD%E5%AE%9A%E3%81%99%E3%82%8B)
-  - [tfstate の backend を一時的にローカルに変更](#tfstate-%E3%81%AE-backend-%E3%82%92%E4%B8%80%E6%99%82%E7%9A%84%E3%81%AB%E3%83%AD%E3%83%BC%E3%82%AB%E3%83%AB%E3%81%AB%E5%A4%89%E6%9B%B4)
+  - [tfstate の backend を一時的にローカルにしておく](#tfstate-%E3%81%AE-backend-%E3%82%92%E4%B8%80%E6%99%82%E7%9A%84%E3%81%AB%E3%83%AD%E3%83%BC%E3%82%AB%E3%83%AB%E3%81%AB%E3%81%97%E3%81%A6%E3%81%8A%E3%81%8F)
   - [一時的に権限借用を外す](#%E4%B8%80%E6%99%82%E7%9A%84%E3%81%AB%E6%A8%A9%E9%99%90%E5%80%9F%E7%94%A8%E3%82%92%E5%A4%96%E3%81%99)
   - [Terraform 実行者用 SA の作成＆設定](#terraform-%E5%AE%9F%E8%A1%8C%E8%80%85%E7%94%A8-sa-%E3%81%AE%E4%BD%9C%E6%88%90%EF%BC%86%E8%A8%AD%E5%AE%9A)
   - [権限借用用のアカウントを設定](#%E6%A8%A9%E9%99%90%E5%80%9F%E7%94%A8%E7%94%A8%E3%81%AE%E3%82%A2%E3%82%AB%E3%82%A6%E3%83%B3%E3%83%88%E3%82%92%E8%A8%AD%E5%AE%9A)
   - [tfstate Bucket 作成](#tfstate-bucket-%E4%BD%9C%E6%88%90)
   - [tfstate を保存する bucket を設定](#tfstate-%E3%82%92%E4%BF%9D%E5%AD%98%E3%81%99%E3%82%8B-bucket-%E3%82%92%E8%A8%AD%E5%AE%9A)
-  - [自身の tfstate を bucket 管理に切り替え](#%E8%87%AA%E8%BA%AB%E3%81%AE-tfstate-%E3%82%92-bucket-%E7%AE%A1%E7%90%86%E3%81%AB%E5%88%87%E3%82%8A%E6%9B%BF%E3%81%88)
-    - [prepare/<env>/tfstate_bucket/](#prepareenvtfstate_bucket)
-    - [prepare/<env>/terraform_sa/](#prepareenvterraform_sa)
+  - [prepare/<env>/ 以下の tfstate を bucket 管理に切り替え](#prepareenv-%E4%BB%A5%E4%B8%8B%E3%81%AE-tfstate-%E3%82%92-bucket-%E7%AE%A1%E7%90%86%E3%81%AB%E5%88%87%E3%82%8A%E6%9B%BF%E3%81%88)
 
 <!-- /TOC -->
 
@@ -59,33 +57,30 @@ gcp_project_id = {
 }[local.env]
 ```
 
-### tfstate の backend を一時的にローカルに変更
+### tfstate の backend を一時的にローカルにしておく
 
 以下の初期設定を行うまでは、tfstate の backend を一時的にローカルに変更する。
 
 - Terraform 実行者用 SA の作成
 - tfstate 用の bucket 作成
 
-`generate.terraform.content` 内の `terraform.backend.gcs` を全てコメントアウトする
+`root.hcl` の `local.tfstate_bucket_name` を `null` に設定すると backend
+を省略するようにテンプレート設定しているため結果的に backend がローカルとなる。
 
 ```hcl
-generate "terraform" {
+locals(
   ...
-  contents = <<EOF
-terraform {
-  required_version = "~> 1.0"
+  tfstate_bucket_name = {
+    <env> = null           # <- null に設定
+  }[local.env]
   ...
-  # backend "gcs" {            # <- このオブジェクトをコメントアウト
-  #   ...
-  # }
-}
-EOF
-}
+)
 ```
 
 ### 一時的に権限借用を外す
 
-`root.hcl`
+`root.hcl` の `local.terraform_runner_sa_email` を `null` に設定すると
+`provider.google.impersonate_service_account` を省略するようにテンプレート設定している。
 
 ```hcl
 locals (
@@ -173,37 +168,9 @@ locals (
 )
 ```
 
-コメントアウトしていた backend 設定をアンコメントする。
-
-```hcl
-generate "terraform" {
-  ...
-  contents = <<EOF
-terraform {
-  required_version = "~> 1.0"
-  ...
-  backend "gcs" {            # <- このオブジェクトをアンコメント
-    ...
-  }
-}
-EOF
-}
-```
-
-### 自身の `tfstate` を bucket 管理に切り替え
-
-#### `prepare/<env>/tfstate_bucket/`
+### `prepare/<env>/` 以下の `tfstate` を bucket 管理に切り替え
 
 ```bash
-cd prepare/<env>/tfstate_bucket/
-terragrunt run -- init -migrate-state
+cd prepare/<env>/
+terragrunt run --all -- init "${@}"
 ```
-
-#### `prepare/<env>/terraform_sa/`
-
-```bash
-cd prepare/<env>/terraform_sa/
-terragrunt run -- init -migrate-state
-```
-
-NOTE: `terraform_sa/` は Terraform を実行する SA の権限を管理するため、これを plan/apply する際には impersonate を解かないといけない。 (`terraform_runner_sa_email` を `null` にする)

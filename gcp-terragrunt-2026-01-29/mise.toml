@@ -3,9 +3,25 @@ gcloud = "554.0.0"
 terraform = "1.14.4"
 terragrunt = "0.99.1"
 
-[tasks."plan"]
+[tasks."init:all"]
+dir = "{{ cwd }}"
+run = 'terragrunt run --all -- init "${@}"'
+
+[tasks."plan:single"]
+dir = "{{ cwd }}"
+run = 'terragrunt run -- plan "${@}"'
+
+[tasks."plan:all"]
 dir = "{{ cwd }}"
 run = 'terragrunt run --all -- plan "${@}"'
+
+[tasks."apply:single"]
+dir = "{{ cwd }}"
+run = 'terragrunt run -- apply "${@}"'
+
+[tasks."apply:all"]
+dir = "{{ cwd }}"
+run = 'terragrunt run --all -- apply "${@}"'
 
 [tasks.clean]
 depends = ["clean:*"]

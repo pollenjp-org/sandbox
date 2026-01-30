@@ -9,14 +9,14 @@ locals {
 
   // NOTE: `terraform_sa` の apply 時は null にして、権限借用を外す
   terraform_runner_sa_email = {
-    // prod = ""
-    // stg  = ""
+    // prod = null
+    // stg  = null
     dev  = "terraform-runner@civil-array-485708-k5.iam.gserviceaccount.com"
   }[local.env]
 
   tfstate_bucket_name = {
-    // prod = ""
-    // stg  = ""
+    // prod = null
+    // stg  = null
     dev  = "dev-tfstate-civil-array-485708-k5"
   }[local.env]
 
@@ -37,10 +37,12 @@ terraform {
     }
   }
 
+  %{ if local.tfstate_bucket_name != null ~}
   backend "gcs" {
     bucket = "${local.tfstate_bucket_name}"
     prefix = "${path_relative_to_include()}"
   }
+  %{ endif ~}
 }
 EOF
 }
@@ -54,7 +56,8 @@ provider "google" {
   project = "${local.gcp_project_id}"
   region  = "asia-northeast1"
 
-  %{ if local.terraform_runner_sa_email != null ~}
+  %{ if local.terraform_runner_sa_email != null
+        && path_relative_to_include() != "prepare/${local.env}/terraform_sa" ~}
   impersonate_service_account = "${local.terraform_runner_sa_email}"
   %{ endif ~}
 }

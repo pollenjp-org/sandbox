@@ -1,0 +1,14 @@
+[tools]
+gcloud = "554.0.0"
+terraform = "1.14.4"
+terragrunt = "0.99.1"
+
+[tasks."plan"]
+dir = "{{ cwd }}"
+run = 'terragrunt run --all -- plan "${@}"'
+
+[tasks.clean]
+depends = ["clean:*"]
+
+[tasks."clean:terragrunt"]
+run = 'find . -type d -name ".terragrunt-cache" -prune -exec rm -rf {} +'

@@ -23,6 +23,10 @@ run = 'terragrunt run -- apply "${@}"'
 dir = "{{ cwd }}"
 run = 'terragrunt run --all -- apply "${@}"'
 
+[tasks."find:init"]
+dir = "{{ cwd }}"
+run = 'terragrunt find --filter "**/init*"'
+
 [tasks.clean]
 depends = ["clean:*"]
 

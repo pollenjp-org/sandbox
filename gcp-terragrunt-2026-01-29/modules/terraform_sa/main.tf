@@ -11,7 +11,11 @@ resource "google_project_iam_member" "sa_roles" {
     "roles/run.admin",                      # Cloud Run サービスの作成・更新・削除。
     "roles/cloudbuild.builds.editor",        # Cloud Build トリガーの作成・更新。
     "roles/artifactregistry.admin",          # Artifact Registry リポジトリの管理。
-    "roles/serviceusage.serviceUsageAdmin",  # Terraform から必要な Google Cloud API を有効化（google_project_service）するために必要。
+
+    # Google Cloud API を有効化で必要
+    # https://github.com/terraform-google-modules/terraform-google-project-factory/tree/main/modules/project_services#prerequisites
+    "roles/serviceusage.serviceUsageAdmin",
+
     "roles/resourcemanager.projectIamAdmin", # Cloud Build や Cloud Run に対する IAM 権限（google_project_iam_member 等）を設定するために必要。
     "roles/iam.serviceAccountUser",          # Cloud Run サービスに実行用のサービスアカウントを割り当てるために必要。
   ])

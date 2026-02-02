@@ -8,6 +8,10 @@
       "path": "../gcp-terraform-2026-01-25"
     },
     {
+      "name": "terragrunt",
+      "path": "../gcp-terragrunt-2026-01-29"
+    },
+    {
       "name": "repo-root",
       "path": "../"
     }

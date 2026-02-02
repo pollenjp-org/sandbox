@@ -12,6 +12,8 @@
   - [tfstate Bucket 作成](#tfstate-bucket-%E4%BD%9C%E6%88%90)
   - [tfstate を保存する bucket を設定](#tfstate-%E3%82%92%E4%BF%9D%E5%AD%98%E3%81%99%E3%82%8B-bucket-%E3%82%92%E8%A8%AD%E5%AE%9A)
   - [prepare/<env>/ 以下の tfstate を bucket 管理に切り替え](#prepareenv-%E4%BB%A5%E4%B8%8B%E3%81%AE-tfstate-%E3%82%92-bucket-%E7%AE%A1%E7%90%86%E3%81%AB%E5%88%87%E3%82%8A%E6%9B%BF%E3%81%88)
+- [Init](#init)
+- [terragrunt run --all](#terragrunt-run---all)
 
 <!-- /TOC -->
 
@@ -173,4 +175,47 @@ locals (
 ```bash
 cd prepare/<env>/
 terragrunt run --all -- init "${@}"
+```
+
+## Init
+
+本プロジェクトにて `**/init/terragrunt.hcl` のように `init/` のような terragrunt ディレクトリには特別な意味を与えています。
+
+**`init/` ディレクトリは terraform の初回実行前後に手作業が必要**
+
+以下のコマンドで `init/` の terragrunt ディレクトリが確認できます。
+
+```bash
+terragrunt find --filter "**/init*"
+# or
+mise run find:init
+```
+
+各 `init/` 以下の README を読み、必要な作業を前後に行うよう注意してください。
+
+実行しようとしている `terragrunt.hcl` に `dependencies` ブロックが定義されている場合注意してください。
+先に依存先の terraform を実行してください。
+
+## `terragrunt run --all`
+
+init 処理を全て終えれば任意のディレクトリで terragrunt を実行して良い。
+
+```bash
+cd '<target/path>'
+
+terragrunt run -- plan
+terragrunt run -- apply
+# or
+mise run plan:single
+mise run apply:single
+```
+
+`terragrunt run --all` を使っても良い。
+
+```bash
+terragrunt run --all -- plan
+terragrunt run --all -- apply
+# or
+mise run plan:all
+mise run apply:all
 ```

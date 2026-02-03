@@ -1,8 +1,11 @@
 resource "google_storage_bucket" "tfstate_bucket" {
   name     = "${var.env}-tfstate-${var.project_id}"
+
+  // https://docs.cloud.google.com/storage/docs/locations?hl=ja
   location = "ASIA-NORTHEAST1" # 東京 シングルリージョン
   # location = "ASIA1" # 東京・大阪 デュアルリージョン
   # location = "ASIA"  # アジア マルチリージョン
+
   force_destroy               = false
   uniform_bucket_level_access = true
   public_access_prevention    = "enforced"

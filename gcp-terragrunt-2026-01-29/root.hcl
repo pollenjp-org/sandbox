@@ -36,6 +36,7 @@ locals {
     dev  = "dev-tfstate-civil-array-485708-k5"
   }[local.env]
 
+  default_region = "asia-northeast1"
 }
 
 generate "terraform" {
@@ -70,7 +71,7 @@ generate "provider" {
   contents = <<EOF
 provider "google" {
   project = "${local.gcp_project_id}"
-  region  = "asia-northeast1"
+  region  = "${local.default_region}"
 
   %{ if local.terraform_runner_sa_email != null
         && path_relative_to_include() != "prepare/${local.env}/terraform_sa" ~}

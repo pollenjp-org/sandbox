@@ -8,16 +8,22 @@ resource "google_service_account" "terraform_sa" {
 resource "google_project_iam_member" "sa_roles" {
   for_each = toset([
     "roles/storage.admin",                   # tfstate 等の bucket 管理
-    "roles/run.admin",                      # Cloud Run サービスの作成・更新・削除。
-    "roles/cloudbuild.builds.editor",        # Cloud Build トリガーの作成・更新。
-    "roles/artifactregistry.admin",          # Artifact Registry リポジトリの管理。
+    "roles/run.admin",                      # Cloud Run サービスの作成・更新・削除
+    "roles/cloudbuild.builds.editor",        # Cloud Build トリガーの作成・更新
+    "roles/artifactregistry.admin",          # Artifact Registry リポジトリの管理
 
-    # Google Cloud API を有効化で必要
+    # Google Cloud API 有効化に必要
     # https://github.com/terraform-google-modules/terraform-google-project-factory/tree/main/modules/project_services#prerequisites
     "roles/serviceusage.serviceUsageAdmin",
 
-    "roles/resourcemanager.projectIamAdmin", # Cloud Build や Cloud Run に対する IAM 権限（google_project_iam_member 等）を設定するために必要。
-    "roles/iam.serviceAccountUser",          # Cloud Run サービスに実行用のサービスアカウントを割り当てるために必要。
+    # project レベルでの IAM 権限を設定に必要 (ex: google_project_iam_member)
+    "roles/resourcemanager.projectIamAdmin",
+
+    # SAアカウントの作成等
+    "roles/iam.serviceAccountAdmin",
+
+    # impersonate 用 (build trigger 等に SA を指定する際に必要)
+    "roles/iam.serviceAccountUser",
   ])
 
   project = var.project_id

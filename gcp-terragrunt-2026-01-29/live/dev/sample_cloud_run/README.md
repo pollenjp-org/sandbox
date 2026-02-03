@@ -11,4 +11,4 @@
     - Eventarc API:
     - Cloud Pub/Sub API
   - cloud run を trigger するには "Cloud Run Admin API" も必要
-    - https://console.cloud.google.com/apis/library/run.googleapis.com?project=civil-array-485708-k5
+    - <https://console.cloud.google.com/apis/library/run.googleapis.com?project=civil-array-485708-k5>

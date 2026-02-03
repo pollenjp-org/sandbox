@@ -192,6 +192,7 @@ mise run find:init
 ```
 
 各 `init/` 以下の README を読み、必要な作業を前後に行うよう注意してください。
+※または `init/terragrunt.hcl` 内で利用している module 先の `README.md` を読んでください。
 
 実行しようとしている `terragrunt.hcl` に `dependencies` ブロックが定義されている場合注意してください。
 先に依存先の terraform を実行してください。

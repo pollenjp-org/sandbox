@@ -16,4 +16,6 @@ inputs = {
   cloud_run_name = "streamlit-tutorial"
   cloud_run_location = "${dependency.sample_cloud_run_init.outputs.location}"
   image_tag = "${dependency.sample_cloud_run_init.outputs.image_tag}"
+  access_users = ["user:polleninjp@gmail.com"]
+  // enable_public_access = true
 }

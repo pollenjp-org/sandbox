@@ -12,6 +12,9 @@ resource "google_project_iam_member" "sa_roles" {
     "roles/cloudbuild.builds.editor",        # Cloud Build トリガーの作成・更新
     "roles/artifactregistry.admin",          # Artifact Registry リポジトリの管理
 
+    # https://docs.cloud.google.com/run/docs/securing/identity-aware-proxy-cloud-run#terraform
+    "roles/iap.admin",
+
     # Google Cloud API 有効化に必要
     # https://github.com/terraform-google-modules/terraform-google-project-factory/tree/main/modules/project_services#prerequisites
     "roles/serviceusage.serviceUsageAdmin",

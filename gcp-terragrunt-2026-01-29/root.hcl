@@ -52,6 +52,10 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 7.17.0"
     }
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = "~> 7.17.0"
+    }
   }
 
   %{ if local.tfstate_bucket_name != null ~}
@@ -70,6 +74,16 @@ generate "provider" {
 
   contents = <<EOF
 provider "google" {
+  project = "${local.gcp_project_id}"
+  region  = "${local.default_region}"
+
+  %{ if local.terraform_runner_sa_email != null
+        && path_relative_to_include() != "prepare/${local.env}/terraform_sa" ~}
+  impersonate_service_account = "${local.terraform_runner_sa_email}"
+  %{ endif ~}
+}
+
+provider "google-beta" {
   project = "${local.gcp_project_id}"
   region  = "${local.default_region}"
 

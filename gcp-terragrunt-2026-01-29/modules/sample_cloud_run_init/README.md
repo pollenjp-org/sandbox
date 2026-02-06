@@ -21,3 +21,7 @@
       gcloud builds triggers run <trigger-name> \
         --branch main --project <project-id> --region=asia-northeast1
       ```
+
+- Google Auth Platform を開き設定を行う (IAP で利用)
+  - <https://console.cloud.google.com/apis/credentials/consent>
+  - TODO: add more info

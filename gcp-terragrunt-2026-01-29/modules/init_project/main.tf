@@ -9,6 +9,7 @@ module "project-services" {
     "cloudbuild.googleapis.com",
     "compute.googleapis.com",
     "iam.googleapis.com",
+    "iap.googleapis.com",
     "run.googleapis.com",
   ]
 }

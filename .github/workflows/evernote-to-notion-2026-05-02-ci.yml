@@ -1,0 +1,61 @@
+name: evernote-to-notion-2026-05-02 CI
+
+on:
+  push:
+    branches:
+      - main
+      - claude/**
+    paths:
+      - 'evernote-to-notion-2026-05-02/**'
+      - '.github/workflows/evernote-to-notion-2026-05-02-ci.yml'
+  pull_request:
+    paths:
+      - 'evernote-to-notion-2026-05-02/**'
+      - '.github/workflows/evernote-to-notion-2026-05-02-ci.yml'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: evernote-to-notion-2026-05-02
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (1.88.0)
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.88.0
+          components: rustfmt, clippy
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
+        with:
+          install: false
+          cache: false
+
+      - name: Cache cargo registry & target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            evernote-to-notion-2026-05-02/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('evernote-to-notion-2026-05-02/Cargo.toml', 'evernote-to-notion-2026-05-02/Cargo.lock') }}
+
+      - name: Show toolchain versions
+        run: |
+          mise --version
+          rustc --version
+          cargo --version
+          cargo fmt --version
+          cargo clippy --version
+
+      - name: fmt:check
+        run: mise run fmt:check
+
+      - name: lint
+        run: mise run lint
+
+      - name: test
+        run: mise run test

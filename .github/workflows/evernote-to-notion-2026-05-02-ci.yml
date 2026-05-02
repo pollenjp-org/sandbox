@@ -1,0 +1,48 @@
+name: evernote-to-notion-2026-05-02 CI
+
+on:
+  push:
+    branches:
+      - main
+      - claude/**
+    paths:
+      - 'evernote-to-notion-2026-05-02/**'
+      - '.github/workflows/evernote-to-notion-2026-05-02-ci.yml'
+  pull_request:
+    paths:
+      - 'evernote-to-notion-2026-05-02/**'
+      - '.github/workflows/evernote-to-notion-2026-05-02-ci.yml'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: evernote-to-notion-2026-05-02
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
+        with:
+          install: true
+          cache: true
+          experimental: true
+
+      - name: Cache cargo registry & target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            evernote-to-notion-2026-05-02/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('evernote-to-notion-2026-05-02/Cargo.toml') }}
+
+      - name: fmt:check
+        run: mise run fmt:check
+
+      - name: lint
+        run: mise run lint
+
+      - name: test
+        run: mise run test

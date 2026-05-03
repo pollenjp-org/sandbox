@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>sandbox</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --fg: #1a1a1a;
+      --bg: #fafafa;
+      --muted: #666;
+      --border: #ddd;
+      --accent: #2563eb;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --fg: #eaeaea;
+        --bg: #111;
+        --muted: #999;
+        --border: #2a2a2a;
+        --accent: #60a5fa;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 2rem 1rem;
+      font-family: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", sans-serif;
+      color: var(--fg);
+      background: var(--bg);
+      line-height: 1.6;
+    }
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    h1 {
+      margin: 0 0 0.5rem;
+      font-size: 1.75rem;
+    }
+    p.lead {
+      margin: 0 0 2rem;
+      color: var(--muted);
+    }
+    ul.projects {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 0.75rem;
+    }
+    ul.projects li {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      background: transparent;
+      transition: border-color 0.15s;
+    }
+    ul.projects li:hover {
+      border-color: var(--accent);
+    }
+    ul.projects a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    ul.projects a:hover {
+      text-decoration: underline;
+    }
+    ul.projects .desc {
+      display: block;
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 0.25rem;
+    }
+    footer {
+      margin-top: 3rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    footer a { color: inherit; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>sandbox</h1>
+    <p class="lead">pollenjp-org/sandbox にぶら下がっている小さなプロジェクト一覧。</p>
+
+    <ul class="projects">
+      <li>
+        <a href="./rust-leptos-start-trunk-2025-08-22/">rust-leptos-start-trunk-2025-08-22</a>
+        <span class="desc">Rust + Leptos + Trunk のスタータ。</span>
+      </li>
+      <li>
+        <a href="./book-mindmap-explorer-2026-05-03/">book-mindmap-explorer-2026-05-03</a>
+        <span class="desc">Vite + React で作った book mind map explorer。</span>
+      </li>
+    </ul>
+
+    <footer>
+      <a href="https://github.com/pollenjp-org/sandbox">GitHub: pollenjp-org/sandbox</a>
+    </footer>
+  </main>
+</body>
+</html>

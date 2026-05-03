@@ -1,7 +1,8 @@
 # GitHub Pages にこのリポジトリ配下の各プロジェクトをまとめてデプロイする。
 #
 # サイトレイアウト:
-#   /sandbox/                                       -> rust-leptos (既存。dist-release を直置き)
+#   /sandbox/                                       -> 各サブサイトへのリンクをまとめたランディングページ (pages-index/)
+#   /sandbox/rust-leptos-start-trunk-2025-08-22/    -> rust-leptos (dist-release を直置き)
 #   /sandbox/book-mindmap-explorer-2026-05-03/      -> Vite + React の book mind map explorer
 #
 # rust-leptos は既に dist-release/ が git にコミットされているのでビルド不要。
@@ -51,8 +52,11 @@ jobs:
         run: |
           set -eux
           mkdir -p _site
-          # rust-leptos をルートに展開 (既存 URL 維持)
-          cp -r rust-leptos-start-trunk-2025-08-22/dist-release/. _site/
+          # ランディングページをルートに配置
+          cp -r pages-index/. _site/
+          # rust-leptos をサブディレクトリに配置
+          mkdir -p _site/rust-leptos-start-trunk-2025-08-22
+          cp -r rust-leptos-start-trunk-2025-08-22/dist-release/. _site/rust-leptos-start-trunk-2025-08-22/
           # book mind map をサブディレクトリに配置
           mkdir -p _site/book-mindmap-explorer-2026-05-03
           cp -r book-mindmap-explorer-2026-05-03/dist/. _site/book-mindmap-explorer-2026-05-03/

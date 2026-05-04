@@ -4,9 +4,10 @@
 #   /sandbox/                                       -> 各サブサイトへのリンクをまとめたランディングページ (pages-index/)
 #   /sandbox/rust-leptos-start-trunk-2025-08-22/    -> rust-leptos (dist-release を直置き)
 #   /sandbox/book-mindmap-explorer-2026-05-03/      -> Vite + React の book mind map explorer
+#   /sandbox/html-text-extractor-2026-05-04/        -> Vite + React の HTML text extractor
 #
 # rust-leptos は既に dist-release/ が git にコミットされているのでビルド不要。
-# book mind map は npm でビルドし、サブディレクトリに配置する。
+# book mind map と html-text-extractor は npm でビルドし、サブディレクトリに配置する。
 name: Deploy static content to Pages
 
 on:
@@ -38,12 +39,22 @@ jobs:
         with:
           node-version: "24"
           cache: "npm"
-          cache-dependency-path: book-mindmap-explorer-2026-05-03/package-lock.json
+          cache-dependency-path: |
+            book-mindmap-explorer-2026-05-03/package-lock.json
+            html-text-extractor-2026-05-04/package-lock.json
 
       - name: Build book-mindmap-explorer
         working-directory: book-mindmap-explorer-2026-05-03
         env:
           VITE_BASE: /sandbox/book-mindmap-explorer-2026-05-03/
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build html-text-extractor
+        working-directory: html-text-extractor-2026-05-04
+        env:
+          VITE_BASE: /sandbox/html-text-extractor-2026-05-04/
         run: |
           npm ci
           npm run build
@@ -60,6 +71,9 @@ jobs:
           # book mind map をサブディレクトリに配置
           mkdir -p _site/book-mindmap-explorer-2026-05-03
           cp -r book-mindmap-explorer-2026-05-03/dist/. _site/book-mindmap-explorer-2026-05-03/
+          # html-text-extractor をサブディレクトリに配置
+          mkdir -p _site/html-text-extractor-2026-05-04
+          cp -r html-text-extractor-2026-05-04/dist/. _site/html-text-extractor-2026-05-04/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

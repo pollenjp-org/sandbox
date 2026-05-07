@@ -1,0 +1,6 @@
+/api/target
+**/.terraform
+**/.terragrunt-cache
+**/terraform.tfstate*
+*.tfvars
+.env

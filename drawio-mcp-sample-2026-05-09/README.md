@@ -81,12 +81,35 @@ AI 側はそれぞれ `open_drawio_xml` / `open_drawio_csv` / `open_drawio_merma
 
 - [examples/architecture.xml](./examples/architecture.xml)
   AWS 風のシンプルな 3 層アーキテクチャ (XML)
+- [examples/architecture.drawio.svg](./examples/architecture.drawio.svg)
+  上の XML を可視化しつつ、`content="..."` 属性に元の mxfile を埋め込んだ
+  「再編集可能 SVG」。draw.io でそのまま開いて編集できる
 - [examples/orgchart.csv](./examples/orgchart.csv)
   CSV から組織図を生成するサンプル
 - [examples/sequence.mmd](./examples/sequence.mmd)
   ログイン処理のシーケンス図 (Mermaid)
 - [examples/flowchart.mmd](./examples/flowchart.mmd)
   CI/CD パイプラインのフローチャート (Mermaid)
+
+## `.drawio.svg` を生成する
+
+注意: **`@drawio/mcp` 自体には SVG/PNG への書き出しツールは無い**。
+`open_drawio_xml` 等は draw.io エディタを開く URL を返すだけで、書き出しは
+ブラウザ上で手動 (`File > Export As > SVG (Editable)`) または公式の
+`drawio-desktop` (Electron) CLI を別途使うことになる。
+
+このリポジトリには軽量な代替として、mxfile XML から `.drawio.svg`
+(再編集可能 SVG) を生成する短い Node スクリプトを置いてある:
+
+```bash
+cd scripts
+npm install
+node render-drawio-svg.mjs ../examples/architecture.xml ../examples/architecture.drawio.svg
+```
+
+ポイントは SVG ルートに `content="<エスケープした mxfile>"` 属性を付けること。
+draw.io はこの属性付き SVG を「画像」ではなく「編集可能な diagram」として
+読み込む — これが `.drawio.svg` 形式の実体。
 
 ## 参考にするプロンプト集
 

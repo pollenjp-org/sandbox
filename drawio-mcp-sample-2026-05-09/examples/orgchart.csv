@@ -1,0 +1,22 @@
+## drawio CSV import format
+## https://www.drawio.com/doc/faq/import-from-csv-builds-graph
+#
+# label: %name%<br><i style="color:gray;">%role%</i>
+# style: rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;
+# parentstyle: rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;
+# width: 160
+# height: 50
+# layout: verticaltree
+# nodespacing: 20
+# levelspacing: 60
+# edgespacing: 20
+# connect: {"from":"manager","to":"id","invert":true,"style":"endArrow=none;"}
+#
+id,name,role,manager
+1,Alice,CEO,
+2,Bob,CTO,1
+3,Carol,VP Eng,2
+4,Dave,VP Data,2
+5,Eve,EM Backend,3
+6,Frank,EM Frontend,3
+7,Grace,EM ML,4

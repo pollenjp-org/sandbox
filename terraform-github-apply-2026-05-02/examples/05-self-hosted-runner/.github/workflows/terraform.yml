@@ -1,0 +1,38 @@
+name: terraform-private
+
+on:
+  pull_request:
+    paths: ["terraform/**"]
+  push:
+    branches: [main]
+    paths: ["terraform/**"]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: tf-private-${{ github.ref }}
+
+jobs:
+  apply:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, terraform, prd]   # ★ VPC 内ランナー
+    environment: prd
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      # IRSA でランナー Pod に IAM が付いている前提 (sts:AssumeRole 不要)
+      - name: Show identity
+        run: aws sts get-caller-identity
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.5"
+
+      - run: terraform init
+      # private EKS / RDS proxy など、ランナーが VPC 内なので到達できる
+      - run: terraform apply -auto-approve

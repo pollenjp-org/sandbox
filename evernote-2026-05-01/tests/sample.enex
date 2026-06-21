@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE en-export SYSTEM "http://xml.evernote.com/pub/evernote-export4.dtd">
+<en-export export-date="20260501T120000Z" application="Evernote" version="10.0">
+  <note>
+    <title>Hello Notion</title>
+    <created>20240115T101530Z</created>
+    <updated>20240210T091200Z</updated>
+    <tag>migration</tag>
+    <tag>demo</tag>
+    <note-attributes>
+      <author>jane@example.com</author>
+      <source>desktop.mac</source>
+      <source-application>evernote.mac</source-application>
+      <source-url>evernote:///view/12345/s10/abcdef12-3456-7890-abcd-ef1234567890/abcdef12-3456-7890-abcd-ef1234567890/</source-url>
+      <latitude>35.6812</latitude>
+      <longitude>139.7671</longitude>
+    </note-attributes>
+    <content><![CDATA[<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE en-note SYSTEM "http://xml.evernote.com/pub/enml2.dtd">
+<en-note>
+  <h1>Hello</h1>
+  <p>This is a <b>bold</b> and <i>italic</i> note with a <a href="https://www.notion.so">link</a>.</p>
+  <ul>
+    <li>first</li>
+    <li>second</li>
+  </ul>
+  <en-todo checked="true"/>done item
+  <en-todo checked="false"/>todo item
+  <pre>code block</pre>
+</en-note>
+]]></content>
+  </note>
+  <note>
+    <title>No GUID note</title>
+    <created>20240301T000000Z</created>
+    <updated>20240301T000000Z</updated>
+    <note-attributes>
+      <author>anon</author>
+    </note-attributes>
+    <content><![CDATA[<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE en-note SYSTEM "http://xml.evernote.com/pub/enml2.dtd">
+<en-note><p>Plain note without source URL.</p></en-note>
+]]></content>
+  </note>
+  <note>
+    <title>GUID via application-data</title>
+    <created>20240401T120000Z</created>
+    <updated>20240401T120000Z</updated>
+    <note-attributes>
+      <author>anon</author>
+      <application-data key="evernote.guid">deadbeef-dead-beef-dead-beefdeadbeef</application-data>
+    </note-attributes>
+    <content><![CDATA[<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE en-note SYSTEM "http://xml.evernote.com/pub/enml2.dtd">
+<en-note><p>application-data path</p></en-note>
+]]></content>
+  </note>
+</en-export>

@@ -1,0 +1,72 @@
+name: Deploy Google Apps Script
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'gmail-notion-forwarder-2026-06-25/gas/**'
+      - '.github/workflows/deploy-gas.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        working-directory: gmail-notion-forwarder-2026-06-25/gas
+        run: npm install
+
+      - name: Install clasp
+        run: npm install -g @google/clasp
+
+      - name: Create .clasp.json
+        working-directory: gmail-notion-forwarder-2026-06-25/gas
+        env:
+          CLASP_CONFIG: ${{ secrets.CLASP_CONFIG }}
+        run: echo "$CLASP_CONFIG" > .clasp.json
+
+      - name: Authenticate with Google
+        env:
+          CLASP_CREDENTIALS: ${{ secrets.CLASP_CREDENTIALS }}
+        run: |
+          mkdir -p ~/.config/clasp
+          echo "$CLASP_CREDENTIALS" > ~/.config/clasp/credentials.json
+
+      - name: Deploy to Apps Script
+        working-directory: gmail-notion-forwarder-2026-06-25/gas
+        run: clasp push
+
+      - name: Create deployment
+        working-directory: gmail-notion-forwarder-2026-06-25/gas
+        run: clasp deployments
+
+      - name: Notify Slack
+        if: always()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "GAS deployment: ${{ job.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Gmail to Notion Forwarder\nStatus: ${{ job.status }}\nCommit: ${{ github.sha }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

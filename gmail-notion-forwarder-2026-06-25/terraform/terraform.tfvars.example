@@ -1,0 +1,7 @@
+# GCP 設定
+gcp_project_id = "YOUR_GCP_PROJECT_ID"
+gcp_region     = "asia-northeast1"
+
+# Notion 設定
+notion_api_key      = "secret_YOUR_NOTION_API_KEY"
+notion_database_id  = "YOUR_DATABASE_ID_32CHARS"

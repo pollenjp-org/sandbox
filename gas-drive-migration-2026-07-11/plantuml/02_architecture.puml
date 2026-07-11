@@ -1,0 +1,33 @@
+@startuml 02_architecture
+skinparam defaultFontName "Noto Sans CJK JP"
+skinparam shadowing false
+skinparam roundCorner 8
+title 移行スクリプトの全体アーキテクチャ
+
+actor "移行元ユーザー\n(@google.com)" as user
+
+package "Google Apps Script (移行元アカウントの権限で実行)" {
+  component "main.js\n(移行スクリプト)" as gas
+  database "スクリプト\nプロパティ\n(進捗状態の保存先)" as props
+  component "時間主導\nトリガー" as trigger
+}
+
+cloud "Drive API v3\n(高度なサービス)" as api
+
+folder "マイドライブ\n移行元フォルダ" as my
+database "共有ドライブ\n(@misugi-corp.co.jp)" as sd
+
+user --> gas : ① startMigration を実行\n(初回のみ権限を承認)
+gas --> api : ② files.list / files.create / files.update
+api --> my : 一覧取得\nremoveParents (移動元から外す)
+api --> sd : フォルダ作成\naddParents (移動先に付ける)
+gas --> props : ③ 進捗を保存\n(中断・再開に備える)
+gas --> trigger : ④ 時間切れ前に\n再開を予約
+trigger --> gas : ⑤ resumeMigration で\n自動再開
+
+note right of sd
+  事前準備として移行元ユーザーを
+  「コンテンツ管理者」以上の
+  メンバーとして追加しておく
+end note
+@enduml

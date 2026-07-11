@@ -1,0 +1,16 @@
+{
+  "name": "gas-drive-migration",
+  "version": "1.0.0",
+  "private": true,
+  "description": "マイドライブ → 別ドメイン共有ドライブ 移行用 Google Apps Script (clasp + TypeScript)",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc && node -e \"require('fs').copyFileSync('src/appsscript.json','dist/appsscript.json')\"",
+    "push": "npm run build && clasp push"
+  },
+  "devDependencies": {
+    "@google/clasp": "^3.0.6",
+    "@types/google-apps-script": "^2.0.0",
+    "typescript": "^5.5.0"
+  }
+}

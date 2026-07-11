@@ -1,0 +1,33 @@
+@startuml 04_sequence_migration
+skinparam defaultFontName "Noto Sans CJK JP"
+skinparam shadowing false
+title 移行処理のシーケンス — 自動中断・再開を含む全体の流れ
+
+actor "移行元ユーザー" as user
+participant "startMigration()" as start
+participant "runLoop()" as run
+participant "スクリプト\nプロパティ" as props
+participant "Drive API v3" as api
+participant "時間主導トリガー" as trg
+
+user -> start : 実行 (初回は権限の承認あり)
+start -> api : 移行元 / 移行先を検証\n(移行先が共有ドライブ内かチェック)
+start -> props : 初期状態を保存\n(キュー = [ルートフォルダの組])
+start -> run : ループ開始
+
+loop キューが空になるまで (フォルダ1つずつ)
+  run -> api : files.list\n(フォルダ内のファイル一覧)
+  run -> api : files.update\naddParents / removeParents\n= ファイルを1件ずつ移動
+  run -> api : files.list + files.create\n(サブフォルダを find-or-create)
+  run -> props : 進捗を保存
+end
+
+alt 制限時間 (約4.5分) を超過した場合
+  run -> props : 状態を保存 (SUSPENDED)
+  run -> trg : 60秒後の再開を予約
+  trg -> run : resumeMigration()\nキューの続きから自動再開
+else キューが空 = 移行完了
+  run -> props : 状態を保存 (DONE)
+  run -> user : レポートをログ出力\n(設定があればメール通知)
+end
+@enduml

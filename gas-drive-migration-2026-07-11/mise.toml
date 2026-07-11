@@ -1,0 +1,33 @@
+# このプロジェクトで使う CLI ツールとタスクの定義 (https://mise.jdx.dev/)
+# 使い方:
+#   mise trust        # 初回のみ: この設定ファイルを信頼する
+#   mise install      # [tools] に書かれたツールを導入
+#   mise run <task>   # タスク実行 (例: mise run build)
+
+[tools]
+node = "22"
+
+[tasks.setup]
+description = "npm 依存関係をインストール"
+run = "npm install"
+
+[tasks.typecheck]
+description = "TypeScript の型チェックのみ実行 (ファイル出力なし)"
+run = "npm run typecheck"
+
+[tasks.build]
+description = "dist/ に GAS 用 JS をビルド (コピペ or clasp push 用)"
+run = "npm run build"
+
+[tasks."clasp:login"]
+description = "clasp で Google アカウントにログイン (ブラウザが開く)"
+run = "npx clasp login"
+
+[tasks."clasp:push"]
+description = "dist/ の内容を Apps Script プロジェクトへ反映"
+depends = ["build"]
+run = "npx clasp push"
+
+[tasks."docs:diagrams"]
+description = "教科書用の図 (plantuml/out/*.svg) を再生成"
+run = "mise --cd plantuml run plantuml:generate svg"

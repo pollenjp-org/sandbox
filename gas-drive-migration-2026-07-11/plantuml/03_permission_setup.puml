@@ -1,0 +1,16 @@
+@startuml 03_permission_setup
+skinparam defaultFontName "Noto Sans CJK JP"
+skinparam shadowing false
+title 事前準備 — 権限まわりの設定の流れ
+
+actor "移行先 Workspace\n管理者" as admin
+actor "移行先ユーザー\n(@misugi-corp.co.jp)" as dst
+actor "移行元ユーザー\n(@google.com)" as src
+participant "共有ドライブ" as sd
+
+admin -> admin : 管理コンソールで\n「組織外ユーザーの共有ドライブ参加」を許可
+dst -> sd : 共有ドライブを作成\n(または既存のものを利用)
+dst -> sd : 移行元ユーザーを\n「コンテンツ管理者」でメンバー追加
+src -> sd : フォルダ作成・ファイル追加が\nできるようになる
+src -> src : GAS プロジェクトを作成して\n移行スクリプトを実行 (次図)
+@enduml

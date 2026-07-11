@@ -5,7 +5,7 @@
  * 作りっぱなしにせず、必ず削除とセットで運用する。
  */
 
-/** トリガーが起動する関数名(main.ts の resumeTransfer) */
+/** トリガーが起動する関数名(transfer.ts の resumeTransfer) */
 const RESUME_HANDLER_NAME = 'resumeTransfer';
 
 /** 再開用の一回限りのトリガーを予約する */

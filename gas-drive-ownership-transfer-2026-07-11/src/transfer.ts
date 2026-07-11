@@ -9,13 +9,12 @@
  */
 
 /**
- * 走査戦略を指定して一括譲渡を開始する(main.ts / webapp.ts から呼ばれる)。
- * options で CONFIG の既定値を上書きできる(Web アプリ UI からの利用者ごとの
- * 入力値や、応答性確保のための「最初のバッチだけ短い時間予算」を渡す)。
+ * 走査戦略を指定して一括譲渡を開始する(sheet.ts のメニューから呼ばれる)。
+ * options には「設定」シートから読み取った実行設定と、ダイアログを素早く
+ * 返すための「最初のバッチだけ短い時間予算」を渡す。
  */
-function startTransferWithStrategy(strategy: TransferStrategy, options?: TransferStartOptions): void {
-  const opts: TransferStartOptions = options === undefined ? {} : options;
-  // 同じ利用者の手動実行とトリガー実行が同時に走らないよう、ユーザーロックで排他する。
+function startTransferWithStrategy(strategy: TransferStrategy, options: TransferStartOptions): void {
+  // 同じ利用者のメニュー操作とトリガー実行が同時に走らないよう、ユーザーロックで排他する。
   // (ユーザーロックは利用者ごとに独立しているため、別の利用者の実行は妨げない)
   const lock = LockService.getUserLock();
   if (!lock.tryLock(CONFIG.lockWaitMs)) {
@@ -26,37 +25,33 @@ function startTransferWithStrategy(strategy: TransferStrategy, options?: Transfe
   try {
     if (loadState() !== null) {
       throw new Error(
-        '未完了の処理が残っています。resumeTransfer() で再開するか、stopTransfer() でリセットしてください。'
+        '未完了の処理が残っています。メニューの「進捗を確認」で状況を見るか、「停止(リセット)」してから開始してください。'
       );
     }
     // 前回の実行の残骸(再開トリガー)が残っていれば掃除する
     deleteResumeTriggers();
 
-    const state = createInitialState(strategy, opts);
+    const state = createInitialState(strategy, options);
     if (strategy === 'tree') {
-      const rootFolderId =
-        opts.rootFolderId !== undefined ? opts.rootFolderId : CONFIG.rootFolderId;
-      const root = resolveRootFolder(rootFolderId);
+      const root = resolveRootFolder(options.rootFolderId);
       state.folderQueue.push(root.getId());
-      // 明示的に指定したルートフォルダ自身は走査中に列挙されないため、ここで譲渡する。
-      // マイドライブのルート(rootFolderId が空文字)は譲渡できないので対象外。
-      if (state.includeFolders && rootFolderId !== '') {
+      // 指定した起点フォルダ自身は走査中に列挙されないため、ここで譲渡する。
+      // (マイドライブのルートが指定された場合、ルート自体は譲渡できないため対象外)
+      if (state.includeFolders && root.getId() !== DriveApp.getRootFolder().getId()) {
         transferOwnershipIfOwned(root, state, 'folder');
       }
     }
     logStartBanner(state);
-    runBatch(state, opts.maxRuntimeMs);
+    runBatch(state, options.maxRuntimeMs);
   } finally {
     lock.releaseLock();
   }
 }
 
-/** 設定(CONFIG + 上書きオプション)を検証し、実行状態の初期値を作る */
-function createInitialState(strategy: TransferStrategy, opts: TransferStartOptions): TransferState {
+/** 実行設定を検証し、実行状態の初期値を作る */
+function createInitialState(strategy: TransferStrategy, options: TransferStartOptions): TransferState {
   const myEmail = Session.getEffectiveUser().getEmail();
-  const newOwnerEmail = (
-    opts.newOwnerEmail !== undefined ? opts.newOwnerEmail : CONFIG.newOwnerEmail
-  ).trim();
+  const newOwnerEmail = options.newOwnerEmail.trim();
   if (newOwnerEmail === '' || newOwnerEmail.indexOf('@') === -1) {
     throw new Error('譲渡先のメールアドレスを設定してください。');
   }
@@ -67,11 +62,10 @@ function createInitialState(strategy: TransferStrategy, opts: TransferStartOptio
     strategy,
     myEmail,
     newOwnerEmail,
-    dryRun: opts.dryRun !== undefined ? opts.dryRun : CONFIG.dryRun,
+    dryRun: options.dryRun,
     includeFolders: CONFIG.includeFolders,
     startedAt: new Date().toISOString(),
     batchCount: 1,
-    sheetLog: opts.sheetLog === true,
     folderQueue: [],
     current: null,
     searchPhase: 'files',
@@ -90,10 +84,14 @@ function normalizeFolderIdInput(value: string): string {
   return match !== null ? match[1] : trimmed;
 }
 
-/** 走査の起点となるフォルダを解決する(空文字 = マイドライブのルート) */
+/**
+ * 走査の起点となるフォルダを解決する。
+ * 「うっかりマイドライブ全体を対象にしてしまう」事故を防ぐため、
+ * 空文字(未指定)はエラーにして、必ず明示的なフォルダ ID を要求する。
+ */
 function resolveRootFolder(rootFolderId: string): GoogleAppsScript.Drive.Folder {
   if (rootFolderId === '') {
-    return DriveApp.getRootFolder();
+    throw new Error('対象フォルダの ID が指定されていません。「設定」シートの B3 に入力してください。');
   }
   try {
     return DriveApp.getFolderById(rootFolderId);
@@ -121,8 +119,8 @@ function runBatch(state: TransferState, maxRuntimeMsOverride?: number): void {
   } else {
     finishTransfer(state);
   }
-  // シート UI から開始した実行では、このバッチで溜めたログ行を台帳シートへまとめて書き出す
-  flushSheetLog(state);
+  // このバッチで溜めたログ行を「譲渡ログ」シートへまとめて書き出す
+  flushSheetLog();
 }
 
 /**
@@ -189,7 +187,7 @@ function runTreeBatch(state: TransferState, deadline: number): boolean {
  *
  * 注意: 本番実行(dryRun = false)では、譲渡したアイテムが検索結果から
  * 消えていくため、継続トークンでの再開時に取りこぼしが発生することがある。
- * 完了後に countOwnedFiles() で残数を確認し、必要なら再実行する。
+ * 完了後にメニューの「所有アイテム数を確認」で残数を確認し、必要なら再実行する。
  */
 function runSearchBatch(state: TransferState, deadline: number): boolean {
   if (state.searchPhase === 'files') {
@@ -280,9 +278,72 @@ function finishTransfer(state: TransferState): void {
   if (state.strategy === 'search' && !state.dryRun) {
     console.log(
       '検索走査では譲渡により検索結果が変化するため、取りこぼしが残ることがあります。' +
-        'countOwnedFiles() で残数を確認し、残っていれば startTransferAllOwned() をもう一度実行してください。'
+        'メニューの「所有アイテム数を確認」で残数を確認し、残っていれば「開始(検索走査)」をもう一度実行してください。'
     );
   }
+}
+
+/**
+ * 中断した処理を再開する。
+ * 通常は時間主導トリガーが自動で呼び出す(手動で実行しても安全)。
+ * トリガーは作成した利用者として実行されるため、その利用者自身の
+ * 進捗(ユーザープロパティ)を読んで続きを処理する。
+ */
+function resumeTransfer(): void {
+  // 発火済みの一回限りのトリガーは自動では消えないため、まず掃除する
+  deleteResumeTriggers();
+  const lock = LockService.getUserLock();
+  if (!lock.tryLock(CONFIG.lockWaitMs)) {
+    console.warn('別の実行が進行中です。再開を後回しにします。');
+    scheduleResume();
+    return;
+  }
+  try {
+    const state = loadState();
+    if (state === null) {
+      console.log('再開する処理はありません。');
+      return;
+    }
+    state.batchCount++;
+    console.log(`バッチ ${state.batchCount} 回目を開始します。`);
+    runBatch(state);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 実行中の処理を止めて、保存された状態と再開トリガーをリセットする(メニューの「停止」から呼ばれる) */
+function stopTransfer(): void {
+  deleteResumeTriggers();
+  const state = loadState();
+  if (state !== null) {
+    logProgress(state, '処理を中止し、状態をリセットします');
+  } else {
+    console.log('保存された状態はありません(トリガーの掃除のみ行いました)。');
+  }
+  clearState();
+}
+
+/**
+ * 自分が所有するアイテム数の概算メッセージを作る(上限 1,000 件)。
+ * 実行前の規模把握と、実行後の「残っていないか」の確認に使う。
+ */
+function describeOwnedItems(): string {
+  const limit = 1000;
+  let fileCount = 0;
+  const files = DriveApp.searchFiles(OWNED_ITEMS_QUERY);
+  while (files.hasNext() && fileCount < limit) {
+    files.next();
+    fileCount++;
+  }
+  let folderCount = 0;
+  const folders = DriveApp.searchFolders(OWNED_ITEMS_QUERY);
+  while (folders.hasNext() && folderCount < limit) {
+    folders.next();
+    folderCount++;
+  }
+  const format = (n: number): string => (n >= limit ? `${limit} 件以上` : `${n} 件`);
+  return `自分が所有するアイテム: ファイル ${format(fileCount)} / フォルダ ${format(folderCount)}`;
 }
 
 /** 開始時の告知ログ */

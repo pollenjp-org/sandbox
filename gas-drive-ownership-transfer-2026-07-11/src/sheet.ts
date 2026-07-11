@@ -10,7 +10,7 @@
  * メニューから実行した処理は「メニューを押した本人」の権限で動くため、
  * 譲渡されるのは本人が所有するファイルだけ。進捗(ユーザープロパティ)・
  * ロック・再開トリガーも本人専用で、他の利用者と干渉しない。
- * セットアップ手順と共有の考え方は docs/textbook/08-spreadsheet.md を参照。
+ * セットアップ手順と共有の考え方は docs/textbook/07-spreadsheet.md を参照。
  */
 
 /** 設定を書くシートの名前 */
@@ -63,10 +63,11 @@ function sheetSetup(): void {
     settings = ss.insertSheet(SETTINGS_SHEET_NAME, 0);
     settings.getRange('A1').setValue('Google Drive 所有権一括譲渡: 実行設定').setFontWeight('bold');
     settings.getRange('A2').setValue('譲渡先メールアドレス(必須)');
-    settings.getRange('A3').setValue('対象フォルダ ID または URL(空欄 = マイドライブ全体)');
+    settings.getRange('A3').setValue('対象フォルダの ID または URL(ツリー走査では必須)');
     settings.getRange('A4').setValue('モード');
     settings.getRange('B4').setValue(MODE_DRY_LABEL);
     settings.getRange('A6').setValue('※ メニュー「所有権譲渡」から実行します。設定はメニューを押した本人の実行に使われます。');
+    settings.getRange('A7').setValue('※ 「開始(検索走査)」はフォルダ指定を使わず、あなたが所有する全アイテムが対象になります。');
     settings.setColumnWidth(1, 340);
     settings.setColumnWidth(2, 340);
   }
@@ -103,7 +104,7 @@ function ensureLogSheet(
 }
 
 /** 「設定」シートから実行設定を読み取る */
-function readSheetSettings(): SheetSettings {
+function readSheetSettings(): TransferStartOptions {
   const ss = getContainerSpreadsheet();
   if (ss === null) {
     throw new Error('スプレッドシートに紐付いていません。');
@@ -150,14 +151,27 @@ function sheetStartWithStrategy(strategy: TransferStrategy): void {
       );
       return;
     }
+    if (strategy === 'tree' && settings.rootFolderId === '') {
+      ui.alert(
+        '設定エラー',
+        `「${SETTINGS_SHEET_NAME}」シートの B3 に対象フォルダの ID(または URL)を入力してください。\n` +
+          'うっかりマイドライブ全体を対象にする事故を防ぐため、フォルダ指定は必須です。',
+        ui.ButtonSet.OK
+      );
+      return;
+    }
     const strategyLabel = strategy === 'tree' ? 'ツリー走査' : '検索走査';
     const modeLabel = settings.dryRun ? MODE_DRY_LABEL : MODE_LIVE_LABEL;
+    const targetLabel =
+      strategy === 'tree'
+        ? `フォルダ ${settings.rootFolderId} の配下`
+        : 'あなたが所有する全アイテム(Drive 全体。B3 のフォルダ指定は使われません)';
     const first = ui.alert(
       '開始の確認',
       `${strategyLabel} / ${modeLabel}\n` +
         `実行者(あなた): ${Session.getEffectiveUser().getEmail()}\n` +
         `譲渡先: ${settings.newOwnerEmail}\n` +
-        `対象: ${settings.rootFolderId === '' ? 'マイドライブ全体' : settings.rootFolderId}\n\n` +
+        `対象: ${targetLabel}\n\n` +
         '開始しますか?(対象になるのは、あなたが所有するアイテムだけです)',
       ui.ButtonSet.OK_CANCEL
     );
@@ -181,7 +195,6 @@ function sheetStartWithStrategy(strategy: TransferStrategy): void {
       newOwnerEmail: settings.newOwnerEmail,
       rootFolderId: settings.rootFolderId,
       dryRun: settings.dryRun,
-      sheetLog: true,
     });
 
     const state = loadState();
@@ -225,10 +238,7 @@ function sheetStop(): void {
   ui.alert('停止しました', '保存された進捗と再開トリガーをリセットしました。', ui.ButtonSet.OK);
 }
 
-/**
- * 台帳シートへ記録する 1 行をバッファへ追加する(transfer.ts から呼ばれる)。
- * シート UI から開始した実行(state.sheetLog = true)でなければ何もしない。
- */
+/** 台帳シートへ記録する 1 行をバッファへ追加する(transfer.ts から呼ばれる) */
 function recordSheetLog(
   state: TransferState,
   result: string,
@@ -237,15 +247,12 @@ function recordSheetLog(
   id: string,
   detail: string
 ): void {
-  if (!state.sheetLog) {
-    return;
-  }
   sheetLogPendingRows.push([new Date(), state.myEmail, result, kindLabel, name, id, state.newOwnerEmail, detail]);
 }
 
 /** バッファの行を台帳シートへまとめて書き込む(バッチの終わりに transfer.ts から呼ばれる) */
-function flushSheetLog(state: TransferState): void {
-  if (!state.sheetLog || sheetLogPendingRows.length === 0) {
+function flushSheetLog(): void {
+  if (sheetLogPendingRows.length === 0) {
     return;
   }
   const rows = sheetLogPendingRows;

@@ -4,22 +4,23 @@ skinparam defaultFontName "Noto Sans CJK JP"
 skinparam shadowing false
 
 package "src/" {
-  class "main.ts" as main <<エントリーポイント>> {
-    +startTransfer()
-    +startTransferAllOwned()
-    +resumeTransfer()
-    +stopTransfer()
-    +showStatus()
-    +countOwnedFiles()
+  class "sheet.ts" as sheet <<エントリーポイント(シート UI)>> {
+    +onOpen() : カスタムメニュー追加
+    +sheetSetup() : 設定・台帳シートの準備
+    +sheetStartTree() / sheetStartSearch()
+    +sheetShowStatus() / sheetStop()
+    +sheetCountOwned()
+    readSheetSettings()
+    recordSheetLog() / flushSheetLog()
   }
   class "transfer.ts" as transfer <<中核ロジック>> {
     startTransferWithStrategy()
-    runBatch()
-    runTreeBatch()
-    runSearchBatch()
+    +resumeTransfer() : トリガーが呼ぶ
+    stopTransfer()
+    runBatch() / runTreeBatch() / runSearchBatch()
     transferOwnershipIfOwned()
-    finishTransfer()
-    logProgress()
+    finishTransfer() / formatProgress()
+    describeOwnedItems()
   }
   class "state.ts" as state <<状態の永続化>> {
     saveState()
@@ -30,50 +31,28 @@ package "src/" {
     scheduleResume()
     deleteResumeTriggers()
   }
-  class "config.ts" as config <<設定>> {
+  class "config.ts" as config <<チューニング定数>> {
     CONFIG: TransferConfig
     OWNED_ITEMS_QUERY
   }
   class "types.d.ts" as types <<型定義(コンパイル時のみ)>> {
     TransferConfig / TransferState
-    TransferStats / FolderProgress
-  }
-  class "webapp.ts" as webapp <<Web アプリ UI>> {
-    +doGet()
-    webAppGetStatus()
-    webAppStartTree() / webAppStartSearch()
-    webAppStop() / webAppCountOwned()
-  }
-  class "index.html" as html <<UI ページ>> {
-    フォーム入力 / 進捗表示
-    google.script.run で呼び出し
-  }
-  class "sheet.ts" as sheet <<スプレッドシート UI>> {
-    +onOpen() : カスタムメニュー追加
-    sheetSetup() / readSheetSettings()
-    sheetStartTree() / sheetStartSearch()
-    sheetShowStatus() / sheetStop()
-    recordSheetLog() / flushSheetLog()
+    TransferStartOptions / TransferStats
   }
   class "appsscript.json" as manifest <<マニフェスト>> {
     timeZone / runtimeVersion
-    oauthScopes / webapp
+    oauthScopes
   }
 }
 
-main --> transfer : 呼び出し
-transfer --> state : 保存 / 復元
-transfer --> triggers : 予約 / 削除
-transfer --> config : 設定参照
-main --> config : 設定参照
-html ..> webapp : google.script.run
-webapp --> transfer : 開始 / 停止
-webapp --> state : 進捗の読み取り
-webapp --> main : 件数の概算
-sheet --> transfer : 開始 / 停止
+sheet --> transfer : 開始 / 停止 / 件数確認
 sheet --> state : 進捗の読み取り
 transfer ..> sheet : 台帳へ記録\n(recordSheetLog)
+transfer --> state : 保存 / 復元
+transfer --> triggers : 予約 / 削除
+transfer --> config : 定数参照
+sheet --> config : 定数参照
 state ..> types : 型を参照
 transfer ..> types : 型を参照
-manifest .. main : 実行環境を定義
+manifest .. sheet : 実行環境を定義
 @enduml

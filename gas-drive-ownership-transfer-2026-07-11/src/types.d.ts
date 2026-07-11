@@ -12,24 +12,33 @@ type TransferStrategy = 'tree' | 'search';
 /** DriveApp のファイルとフォルダをまとめて扱うための型(どちらも getOwner / setOwner を持つ) */
 type DriveItem = GoogleAppsScript.Drive.File | GoogleAppsScript.Drive.Folder;
 
-/** config.ts で定義するツール全体の設定 */
+/** config.ts で定義する、動作チューニング用の設定 */
 interface TransferConfig {
-  /** 譲渡先(新しい所有者)のメールアドレス */
-  newOwnerEmail: string;
-  /** 走査を開始するフォルダの ID。空文字ならマイドライブのルート */
-  rootFolderId: string;
-  /** true の間は実際の譲渡を行わず、対象の列挙とログ出力だけを行う */
-  dryRun: boolean;
   /** フォルダ自体の所有権も譲渡するかどうか */
   includeFolders: boolean;
   /** 1 回の実行で使う時間の上限(ミリ秒) */
   maxRuntimeMs: number;
-  /** UI(Web アプリ / スプレッドシートのメニュー)から開始したときの、最初のバッチの時間予算(ミリ秒) */
+  /** メニューから開始したときの、最初のバッチの時間予算(ミリ秒) */
   uiFirstBatchMs: number;
   /** 中断後、次のバッチを開始するまでの待ち時間(ミリ秒) */
   resumeDelayMs: number;
-  /** スクリプトロックの取得を待つ時間(ミリ秒) */
+  /** ユーザーロックの取得を待つ時間(ミリ秒) */
   lockWaitMs: number;
+}
+
+/**
+ * 開始時に渡す実行設定。
+ * 値はスプレッドシートの「設定」シートから読み取られる(sheet.ts)。
+ */
+interface TransferStartOptions {
+  /** 譲渡先メールアドレス(必須。未指定はエラー) */
+  newOwnerEmail: string;
+  /** 走査の起点フォルダ ID。ツリー走査では必須(未指定はエラー)。検索走査では使われない */
+  rootFolderId: string;
+  /** DRY RUN かどうか */
+  dryRun: boolean;
+  /** 最初のバッチの時間予算(ミリ秒)。メニューのダイアログを素早く返すために短くする */
+  maxRuntimeMs?: number;
 }
 
 /** 処理件数の集計 */
@@ -56,62 +65,12 @@ interface FolderProgress {
   token: string | null;
 }
 
-/**
- * 開始時に CONFIG の既定値を上書きするオプション。
- * Web アプリ UI から「利用者ごとの値」を渡すために使う(エディタ実行時は未指定 = CONFIG の値)。
- */
-interface TransferStartOptions {
-  /** 最初のバッチの時間予算(ミリ秒)。Web からの開始時に短くして応答性を確保する */
-  maxRuntimeMs?: number;
-  /** 譲渡先メールアドレス(UI の入力値) */
-  newOwnerEmail?: string;
-  /** 走査の起点フォルダ ID。空文字 = マイドライブのルート */
-  rootFolderId?: string;
-  /** DRY RUN かどうか(UI の選択値) */
-  dryRun?: boolean;
-  /** true なら結果をスプレッドシートの「譲渡ログ」シートにも記録する(シート UI 用) */
-  sheetLog?: boolean;
-}
-
-/** スプレッドシートの「設定」シートから読み取った実行設定 */
-interface SheetSettings {
-  newOwnerEmail: string;
-  rootFolderId: string;
-  dryRun: boolean;
-}
-
-/** Web アプリ UI に返す、実行中ジョブのサマリ */
-interface WebAppRunSummary {
-  strategy: TransferStrategy;
-  dryRun: boolean;
-  newOwnerEmail: string;
-  batchCount: number;
-  scanned: number;
-  transferred: number;
-  planned: number;
-  skippedNotOwned: number;
-  errors: number;
-  /** ツリー走査での未処理フォルダキュー数(検索走査では 0) */
-  queueLength: number;
-  startedAt: string;
-}
-
-/** Web アプリ UI に返す現在の状況(google.script.run で HTML 側へ渡る) */
-interface WebAppStatus {
-  /** ページを開いている本人(= このスクリプトが動く権限)のメールアドレス */
-  myEmail: string;
-  /** この利用者に未完了の処理が保存されているか */
-  running: boolean;
-  /** running のときの進捗サマリ(なければ null) */
-  summary: WebAppRunSummary | null;
-}
-
 /** バッチをまたいでユーザープロパティに永続化する実行状態(利用者ごとに独立) */
 interface TransferState {
   strategy: TransferStrategy;
   /** 実行者(現在の所有者)のメールアドレス */
   myEmail: string;
-  /** 譲渡先のメールアドレス(開始時点の CONFIG のスナップショット) */
+  /** 譲渡先のメールアドレス(開始時点の「設定」シートの値のスナップショット) */
   newOwnerEmail: string;
   dryRun: boolean;
   includeFolders: boolean;
@@ -119,8 +78,6 @@ interface TransferState {
   startedAt: string;
   /** 実行したバッチの回数(初回 = 1) */
   batchCount: number;
-  /** 結果をスプレッドシートの「譲渡ログ」シートにも記録するか(シート UI から開始した場合 true) */
-  sheetLog: boolean;
   /** ツリー走査: これから処理するフォルダ ID のキュー */
   folderQueue: string[];
   /** ツリー走査: 処理中フォルダの進捗(なければ null) */

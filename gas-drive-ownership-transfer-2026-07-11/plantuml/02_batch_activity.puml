@@ -4,7 +4,7 @@ skinparam defaultFontName "Noto Sans CJK JP"
 skinparam shadowing false
 
 start
-:設定を検証し、状態を初期化\n(キュー = [ルートフォルダ]);
+:「設定」シートの内容を検証し、状態を初期化\n(キュー = [指定された起点フォルダ]);
 while (キューにフォルダが残っている?) is (はい)
   :キューの先頭からフォルダを 1 つ取り出す;
   while (フォルダ直下に未処理のファイルがある?) is (はい)

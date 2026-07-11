@@ -21,8 +21,9 @@ package "ローカル開発環境" {
 }
 
 cloud "Google" {
-  package "Apps Script プロジェクト" {
-    component "スクリプト本体\n(main / transfer / state / ...)" as gas
+  component "バインド先スプレッドシート\n「設定」シート / 「譲渡ログ」シート\n+ カスタムメニュー「所有権譲渡」" as sheet
+  package "Apps Script プロジェクト\n(シートにバインド)" {
+    component "スクリプト本体\n(sheet / transfer / state / ...)" as gas
     component "時間主導トリガー" as trigger
     component "ユーザープロパティ\n(進捗チェックポイント\n利用者ごとに独立)" as props
   }
@@ -34,7 +35,9 @@ cloud "Google" {
 
 dev --> src : 編集
 dev --> clasp : mise run push
+dev --> sheet : 設定を入力し\nメニューから実行
 clasp --> gas : clasp push\n(HTTPS)
+sheet <--> gas : 設定の読み取り\n台帳への記録
 gas --> drive : DriveApp で走査し\n所有権を譲渡
 gas <--> props : 進捗の保存 / 復元
 trigger --> gas : resumeTransfer() を\n自動起動

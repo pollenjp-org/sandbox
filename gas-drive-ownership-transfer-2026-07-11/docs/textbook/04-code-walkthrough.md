@@ -15,14 +15,11 @@ gas-drive-ownership-transfer-2026-07-11/
 ├── src/                   # ★ 編集するのはここ
 │   ├── appsscript.json    # マニフェスト(ビルド時に dist/ へコピー)
 │   ├── types.d.ts         # 型定義(コンパイル時のみ使用)
-│   ├── config.ts          # ユーザーが書き換える設定
+│   ├── config.ts          # 動作チューニング用の定数
 │   ├── state.ts           # 進捗の保存・復元(チェックポイント)
 │   ├── triggers.ts        # 再開トリガーの管理
-│   ├── transfer.ts        # 中核ロジック(走査と譲渡)
-│   ├── main.ts            # エントリーポイント(実行する関数)
-│   ├── webapp.ts          # Web アプリ UI のサーバー側(第 7 章)
-│   ├── index.html         # Web アプリ UI の画面(第 7 章)
-│   └── sheet.ts           # スプレッドシート UI: メニュー・設定シート・台帳(第 8 章)
+│   ├── transfer.ts        # 中核ロジック(走査と譲渡・再開・停止)
+│   └── sheet.ts           # エントリーポイント: メニュー・設定シート・台帳(第 7 章)
 ├── dist/                  # ビルド成果物(自動生成、Git 管理外)
 ├── docs/textbook/         # この教科書
 └── plantuml/              # 図の生成元(.puml)と mise タスク
@@ -36,7 +33,7 @@ gas-drive-ownership-transfer-2026-07-11/
 
 ## 4.2 最重要の前提: GAS には「モジュール」がない
 
-コードを読む前に、この構成を理解する鍵を 1 つ。**GAS には import / export というモジュールの仕組みがありません**。プロジェクト内の全ファイルは、**1 つの大きなグローバルスコープを共有**します。`transfer.ts` の関数を `main.ts` から呼ぶのに、import 文は不要(むしろ書けない)なのです。
+コードを読む前に、この構成を理解する鍵を 1 つ。**GAS には import / export というモジュールの仕組みがありません**。プロジェクト内の全ファイルは、**1 つの大きなグローバルスコープを共有**します。`transfer.ts` の関数を `sheet.ts` から呼ぶのに、import 文は不要(むしろ書けない)なのです。
 
 <details>
 <summary>📘 用語解説: モジュール / グローバルスコープ</summary>
@@ -72,10 +69,10 @@ gas-drive-ownership-transfer-2026-07-11/
 ビルドは `package.json` のスクリプトで行います。
 
 ```json
-"build": "rm -rf dist && tsc && cp src/appsscript.json dist/appsscript.json && cp src/index.html dist/index.html"
+"build": "rm -rf dist && tsc && cp src/appsscript.json dist/appsscript.json"
 ```
 
-`tsc` が `src/*.ts` → `dist/*.js` に変換し、コンパイル対象でないマニフェストと HTML は `cp` でコピーしています。clasp は `.clasp.json` の `"rootDir": "dist"` 設定により **dist/ だけ**をアップロードします。
+`tsc` が `src/*.ts` → `dist/*.js` に変換し、コンパイル対象でないマニフェストは `cp` でコピーしています。clasp は `.clasp.json` の `"rootDir": "dist"` 設定により **dist/ だけ**をアップロードします。
 
 ## 4.3 appsscript.json — マニフェスト
 
@@ -88,7 +85,9 @@ gas-drive-ownership-transfer-2026-07-11/
   "oauthScopes": [
     "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/script.scriptapp",
-    "https://www.googleapis.com/auth/userinfo.email"
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/spreadsheets.currentonly",
+    "https://www.googleapis.com/auth/script.container.ui"
   ]
 }
 ```
@@ -105,6 +104,8 @@ gas-drive-ownership-transfer-2026-07-11/
 - `auth/drive`: Drive のファイル操作(走査と `setOwner` に必要)
 - `auth/script.scriptapp`: トリガーの作成・削除に必要
 - `auth/userinfo.email`: 実行者自身のメールアドレスの取得(`Session.getEffectiveUser()`)に必要
+- `auth/spreadsheets.currentonly`: バインド先のシート(設定・台帳)の読み書きに必要。**他のスプレッドシートには触れない**限定スコープ
+- `auth/script.container.ui`: カスタムメニューと確認ダイアログの表示に必要
 
 <details>
 <summary>📘 用語解説: スコープの最小化</summary>
@@ -152,23 +153,22 @@ TypeScript で「このオブジェクトはこういう名前と型のプロパ
 
 </details>
 
-## 4.5 config.ts — 設定
+## 4.5 config.ts — 動作チューニング用の定数
 
-ユーザーが書き換えるのはこのファイルだけです。
+このファイルには**動作の調整値だけ**が入っています。実行のたびに指定する設定(譲渡先・対象フォルダ・モード)はここには**存在せず**、スプレッドシートの「設定」シートから読み取ります。デフォルトの譲渡先や対象フォルダを持たないのは意図的な設計で、**未指定のまま動き出す事故を構造的に防ぐ**ためです。
 
 ```typescript
 const CONFIG: TransferConfig = {
-  newOwnerEmail: 'new-owner@example.com', // ★ 必ず書き換える
-  rootFolderId: '',                       // '' = マイドライブのルート
-  dryRun: true,                           // ★ 最初は必ず true のまま実行
-  includeFolders: true,                   // フォルダ自体も譲渡するか
-  maxRuntimeMs: 4.5 * 60 * 1000,          // 1 バッチの時間予算(4.5 分)
-  resumeDelayMs: 60 * 1000,               // 再開までの待ち時間(60 秒)
-  lockWaitMs: 30 * 1000,                  // ロック取得の待ち時間(30 秒)
+  includeFolders: true,          // フォルダ自体も譲渡するか
+  maxRuntimeMs: 4.5 * 60 * 1000, // 1 バッチの時間予算(4.5 分)
+  uiFirstBatchMs: 45 * 1000,     // メニューから開始した最初のバッチだけ短くする(45 秒)
+  resumeDelayMs: 60 * 1000,      // 再開までの待ち時間(60 秒)
+  lockWaitMs: 30 * 1000,         // ロック取得の待ち時間(30 秒)
 };
 ```
 
-`maxRuntimeMs` が 6 分ちょうどではなく 4.5 分なのは、**時間切れ処理そのもの(状態の保存やトリガー作成)にも時間が必要**だからです。1.5 分の余白が「しおりを挟んで本を閉じる」ための時間です。
+- `maxRuntimeMs` が 6 分ちょうどではなく 4.5 分なのは、**時間切れ処理そのもの(状態の保存やトリガー作成)にも時間が必要**だからです。1.5 分の余白が「しおりを挟んで本を閉じる」ための時間です
+- `uiFirstBatchMs` は、メニューから開始した直後の**最初のバッチだけ** 45 秒で切り上げるための値です。確認ダイアログの後すぐに「開始しました」を返して操作を戻し、残りはトリガーの自動再開(1 バッチ 4.5 分)に任せます
 
 また、検索走査で使う Drive の検索クエリもここで定義しています。
 
@@ -230,7 +230,7 @@ function deleteResumeTriggers(): void {
 
 `deleteResumeTriggers()` は「このスクリプトの全トリガーのうち、起動先が `resumeTransfer` のものだけ」を削除します。関数名で絞り込んでいるので、仮に同じプロジェクトへ別のトリガーを手動で足していても巻き込みません。
 
-なお、トリガーは**作成した利用者のもの**として登録され、`getProjectTriggers()` も**自分のトリガーだけ**を返します。Web アプリを複数人で使った場合も、各利用者の再開トリガーは互いに見えず、消し合うことはありません(上限 20 個も利用者ごとのカウントです)。
+なお、トリガーは**作成した利用者のもの**として登録され、`getProjectTriggers()` も**自分のトリガーだけ**を返します。スプレッドシートを共有して複数人で使った場合も、各利用者の再開トリガーは互いに見えず、消し合うことはありません(上限 20 個も利用者ごとのカウントです)。
 
 ## 4.8 transfer.ts — 中核ロジック
 
@@ -247,22 +247,20 @@ function startTransferWithStrategy(strategy: TransferStrategy, options?: Transfe
   }
   try {
     if (loadState() !== null) {
-      throw new Error('未完了の処理が残っています。resumeTransfer() で再開するか、...');
+      throw new Error('未完了の処理が残っています。...');
     }
     deleteResumeTriggers(); // 前回の残骸を掃除
 
-    const state = createInitialState(strategy, opts);
+    const state = createInitialState(strategy, options);
     if (strategy === 'tree') {
-      const rootFolderId =
-        opts.rootFolderId !== undefined ? opts.rootFolderId : CONFIG.rootFolderId;
-      const root = resolveRootFolder(rootFolderId);
+      const root = resolveRootFolder(options.rootFolderId); // 未指定('')はここでエラー
       state.folderQueue.push(root.getId()); // キューの初期値 = 起点フォルダ
-      if (state.includeFolders && rootFolderId !== '') {
+      if (state.includeFolders && root.getId() !== DriveApp.getRootFolder().getId()) {
         transferOwnershipIfOwned(root, state, 'folder'); // 起点フォルダ自身の譲渡
       }
     }
     logStartBanner(state);
-    runBatch(state, opts.maxRuntimeMs);
+    runBatch(state, options.maxRuntimeMs);
   } finally {
     lock.releaseLock(); // 何があっても必ず解放
   }
@@ -271,16 +269,17 @@ function startTransferWithStrategy(strategy: TransferStrategy, options?: Transfe
 
 順に、(1) ロック取得(3.6 節)、(2) 未完了状態がないかの安全確認、(3) 状態の初期化とキューへの起点投入、(4) バッチ実行 — という流れです。
 
-第 2 引数の `options`(`TransferStartOptions` 型)は **CONFIG の値を上書きするためのオプション**です。エディタから実行する `startTransfer()` は何も渡さないので CONFIG がそのまま使われ、Web アプリ UI(第 7 章)は画面の入力値(譲渡先・対象フォルダ・DRY RUN かどうか)と「最初のバッチだけ短い時間予算」をここに渡します。
+第 2 引数の `options`(`TransferStartOptions` 型)は、**「設定」シートから読み取った実行設定**(譲渡先・対象フォルダ・DRY RUN かどうか)と、「最初のバッチだけ短い時間予算」(`CONFIG.uiFirstBatchMs`)です。sheet.ts の `sheetStartWithStrategy()` が詰めて渡してきます。
 
-細かいけれど大事な点が 2 つあります。
+細かいけれど大事な点が 3 つあります。
 
-- **起点フォルダ自身の譲渡**: キュー方式では「フォルダの譲渡は、親フォルダを処理するときに行う」ため、一番上の起点フォルダだけは誰にも譲渡されません。そこで開始時に特別扱いで譲渡します。ただし `rootFolderId` が空(= マイドライブのルート)の場合、ルートは譲渡できない特殊フォルダなので対象外です
+- **対象フォルダは必須**: `resolveRootFolder()` は空文字(未指定)を受け取ると**即エラー**にします。「うっかりマイドライブ全体を対象にする」事故をコードのレベルでも防いでいます(シート側のチェックとの二重防御)
+- **起点フォルダ自身の譲渡**: キュー方式では「フォルダの譲渡は、親フォルダを処理するときに行う」ため、一番上の起点フォルダだけは誰にも譲渡されません。そこで開始時に特別扱いで譲渡します。例外として、指定されたのがマイドライブのルートそのものだった場合、ルートは譲渡できない特殊フォルダなので対象外です
 - **`finally` でのロック解放**: 途中で例外が飛んでもロックが残らないようにしています
 
 ### createInitialState() — 設定の検証とスナップショット
 
-譲渡先メールアドレスの妥当性(空でない・`@` を含む・**自分自身でない**)をチェックし、「オプションで上書きされた CONFIG」の値を状態オブジェクトへ写し取ります。以後のバッチは常に状態側の値を使うため、実行途中に `config.ts` を書き換えても進行中の処理はぶれません。
+譲渡先メールアドレスの妥当性(空でない・`@` を含む・**自分自身でない**)をチェックし、渡された実行設定を状態オブジェクトへ写し取ります。以後のバッチは常に状態側の値を使うため、実行途中に「設定」シートのセルを書き換えても進行中の処理はぶれません。
 
 ### runBatch() — 1 バッチの実行と後始末
 
@@ -406,24 +405,13 @@ function transferOwnershipIfOwned(item: DriveItem, state: TransferState, kind: '
 
 </details>
 
-### finishTransfer() / logProgress() — 完了処理とサマリ
+### finishTransfer() / formatProgress() — 完了処理とサマリ
 
-完了時は「状態のクリア → トリガー削除 → サマリ出力」を行います。サマリには走査件数・譲渡件数・スキップ件数・エラー件数・残キュー数が含まれ、中断時にも毎回出力されるので、ログを見れば進捗が追えます。
+完了時は「状態のクリア → トリガー削除 → サマリ出力 → 台帳へのサマリ行記録」を行います。サマリには走査件数・譲渡件数・スキップ件数・エラー件数・残キュー数が含まれ、中断時にも毎回出力されるので、進捗が追えます。整形処理は `formatProgress()` に切り出してあり、ログ出力とメニューの「進捗を確認」ダイアログの両方で同じ文面を使います。
 
-## 4.9 main.ts — エントリーポイント
+### resumeTransfer() / stopTransfer() — 再開と停止
 
-Apps Script エディタから実行する関数を集めた「操作盤」です。中身は薄く、実処理は transfer.ts へ委譲します。
-
-| 関数 | 役割 |
-| --- | --- |
-| `startTransfer()` | ツリー走査で開始(基本はこれ) |
-| `startTransferAllOwned()` | 検索走査で開始(全所有物の総ざらい) |
-| `resumeTransfer()` | 中断からの再開。**通常はトリガーが自動で呼ぶ**が手動でも可 |
-| `stopTransfer()` | 中止。保存状態とトリガーを掃除してリセット |
-| `showStatus()` | 進捗の表示(状態は変更しない) |
-| `countOwnedFiles()` | 自分の所有アイテム数を概算(上限 1,000 件)。実行前後の確認用 |
-
-`resumeTransfer()` にはトリガー実行ならではの工夫があります。
+`resumeTransfer()` は**時間主導トリガーが自動で呼び出す**再開処理です(これだけは人間ではなくトリガーがエントリーポイントになります)。トリガー実行ならではの工夫があります。
 
 ```typescript
 function resumeTransfer(): void {
@@ -440,17 +428,31 @@ function resumeTransfer(): void {
 
 ロックが取れなかったとき(前のバッチがまだ動いている等)に、エラーで死ぬのではなく**再予約して身を引く**ことで、再開の連鎖が途切れないようにしています。
 
-## 4.10 webapp.ts / index.html — Web アプリ UI(オプション)
+`stopTransfer()` は「トリガー削除 → 進捗の最終サマリ出力 → 状態クリア」を行うリセット処理で、メニューの「停止(リセット)」から呼ばれます。
 
-ブラウザのフォーム(譲渡先・対象フォルダ・モードを利用者ごとに入力)とボタン操作で実行するための UI です。中身は `main.ts` と同じく薄いラッパーで、入力値を `TransferStartOptions` に詰めて transfer.ts へ委譲します。デプロイ方法・**共有範囲(アクセス設定)の考え方**・コード解説は[第 7 章](./07-webapp.md)にまとめています。
+## 4.9 sheet.ts — エントリーポイント(スプレッドシート UI)
 
-## 4.11 sheet.ts — スプレッドシート UI(推奨)
+利用者が触る唯一のインターフェースです。`onOpen()` がカスタムメニュー「所有権譲渡」を追加し、各メニュー項目が対応する関数を呼びます。
 
-スプレッドシートに紐付けたときに使えるインターフェースです。`onOpen()` がカスタムメニューを追加し、「設定」シートのセルから入力値を読んで transfer.ts へ委譲、結果を「譲渡ログ」シート(台帳)へ記録します。台帳への書き込みは 1 行ずつではなく**バッファにためてバッチ終了時に一括書き込み**する点が実装上のポイントです。詳細は[第 8 章](./08-spreadsheet.md)にまとめています。
+| メニュー項目 | 関数 | 役割 |
+| --- | --- | --- |
+| 初期設定 | `sheetSetup()` | 「設定」「譲渡ログ」シートを作成(何度実行しても安全) |
+| 所有アイテム数を確認 | `sheetCountOwned()` | `describeOwnedItems()` の結果をダイアログ表示 |
+| 開始(ツリー走査 / 検索走査) | `sheetStartTree()` / `sheetStartSearch()` | 設定シートを読み、確認ダイアログ(本番は 2 段階)を経て開始 |
+| 進捗を確認 | `sheetShowStatus()` | 保存中の進捗をダイアログ表示 |
+| 停止(リセット) | `sheetStop()` | 確認の上で `stopTransfer()` を呼ぶ |
 
-## 4.12 コードを読むときのコツ
+実装上のポイントは 3 つです。
 
-1. **エントリーポイントから追う**: `main.ts` の `startTransfer()` → `startTransferWithStrategy()` → `runBatch()` → `runTreeBatch()` → `transferOwnershipIfOwned()` の順に読むと、呼び出しの流れがそのまま処理の流れです
+1. **入力の検証は入口で**: `sheetStartWithStrategy()` は譲渡先(B2)未入力と、ツリー走査での対象フォルダ(B3)未入力を、**開始前にダイアログでエラー**にします(transfer.ts 側の検証との二重防御)
+2. **安全側に倒す読み取り**: `readSheetSettings()` はモード(B4)の値が想定外なら DRY RUN として扱います。フォルダ ID は URL のままの貼り付けにも対応します(`normalizeFolderIdInput()`)
+3. **台帳はバッファして一括書き込み**: `recordSheetLog()` は行をメモリにため、バッチの終わりに `flushSheetLog()` が `setValues()` でまとめて書きます。シートへの書き込みは 1 回あたり数十ミリ秒かかるため、数千件を 1 件ずつ書くと 6 分制限を圧迫してしまうからです
+
+シート UI の使い方・共有の考え方は[第 7 章](./07-spreadsheet.md)にまとめています。
+
+## 4.10 コードを読むときのコツ
+
+1. **エントリーポイントから追う**: `sheet.ts` の `sheetStartTree()` → `startTransferWithStrategy()` → `runBatch()` → `runTreeBatch()` → `transferOwnershipIfOwned()` の順に読むと、呼び出しの流れがそのまま処理の流れです
 2. **「状態」を主役に読む**: どの関数も「`TransferState` を作る・進める・保存する・復元する」のどれかをしています。図 4-1 と `types.d.ts` を手元に置いて読むと迷子になりません
 3. **図と往復する**: 図 3-3(アクティビティ図)と `runTreeBatch()` は 1 対 1 に対応するように書かれています
 

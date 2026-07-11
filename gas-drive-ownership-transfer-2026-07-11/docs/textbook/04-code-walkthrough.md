@@ -6,8 +6,10 @@
 
 ```
 gas-drive-ownership-transfer-2026-07-11/
-├── mise.toml              # ツールバージョン(Node 24)とタスク定義
-├── package.json           # npm 依存と build 等のスクリプト
+├── mise.toml              # ツールバージョン(Node 24 / pnpm)とタスク定義
+├── package.json           # 依存パッケージと build 等のスクリプト
+├── pnpm-workspace.yaml    # pnpm の設定(minimumReleaseAge = 1 週間ルール)
+├── pnpm-lock.yaml         # 依存バージョンの固定(ロックファイル)
 ├── tsconfig.json          # TypeScript コンパイラの設定
 ├── .clasp.json.example    # clasp 接続設定の見本(コピーして .clasp.json を作る)
 ├── src/                   # ★ 編集するのはここ
@@ -70,10 +72,10 @@ gas-drive-ownership-transfer-2026-07-11/
 ビルドは `package.json` のスクリプトで行います。
 
 ```json
-"build": "npm run clean && tsc && cp src/appsscript.json dist/appsscript.json"
+"build": "rm -rf dist && tsc && cp src/appsscript.json dist/appsscript.json && cp src/index.html dist/index.html"
 ```
 
-`tsc` が `src/*.ts` → `dist/*.js` に変換し、コンパイル対象でないマニフェストは `cp` でコピーしています。clasp は `.clasp.json` の `"rootDir": "dist"` 設定により **dist/ だけ**をアップロードします。
+`tsc` が `src/*.ts` → `dist/*.js` に変換し、コンパイル対象でないマニフェストと HTML は `cp` でコピーしています。clasp は `.clasp.json` の `"rootDir": "dist"` 設定により **dist/ だけ**をアップロードします。
 
 ## 4.3 appsscript.json — マニフェスト
 

@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "description": "Google Drive 内で自分が所有するファイル/フォルダの所有権を、指定ユーザーへ一括譲渡する Google Apps Script",
+  "packageManager": "pnpm@11.9.0",
   "scripts": {
     "check": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "build": "npm run clean && tsc && cp src/appsscript.json dist/appsscript.json && cp src/index.html dist/index.html"
+    "build": "rm -rf dist && tsc && cp src/appsscript.json dist/appsscript.json && cp src/index.html dist/index.html"
   },
   "devDependencies": {
     "@google/clasp": "^3.3.0",

@@ -136,7 +136,7 @@ $ mise run push
 | 症状 | 原因 | 対処 |
 | --- | --- | --- |
 | `push` 時に `User has not enabled the Apps Script API` | Apps Script API が無効 | [設定ページ](https://script.google.com/home/usersettings)でオンにして数分待つ(2.4 節) |
-| `push` 時に `Manifest file has been updated. Do you want to push and overwrite?` | マニフェストの上書き確認 | `y` を入力(手元が正)。毎回聞かれるのが嫌なら `npx clasp push -f` |
+| `push` 時に `Manifest file has been updated. Do you want to push and overwrite?` | マニフェストの上書き確認 | `y` を入力(手元が正)。毎回聞かれるのが嫌なら `pnpm exec clasp push -f` |
 | `.clasp.json` が見つからないと言われる | プロジェクト未紐付け | 2.6 節の方法 A または B を実施 |
 | 実行時に `未完了の処理が残っています` | 前回の実行が中断状態のまま | 続きをやるなら `resumeTransfer()`、やり直すなら `stopTransfer()` してから開始 |
 | 実行時に `ロックを取得できませんでした` | 別の実行(トリガー等)が進行中 | 数分待って再実行。「実行数」で進行中の実行を確認 |

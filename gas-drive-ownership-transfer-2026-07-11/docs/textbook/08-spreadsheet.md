@@ -33,7 +33,7 @@ Apps Script プロジェクトには 2 形態あります。**スタンドアロ
 
 ```bash
 $ mise run build
-$ npx clasp create-script --type sheets --title "Drive 所有権一括譲渡" --rootDir dist
+$ pnpm exec clasp create-script --type sheets --title "Drive 所有権一括譲渡" --rootDir dist
 $ mise run push
 ```
 

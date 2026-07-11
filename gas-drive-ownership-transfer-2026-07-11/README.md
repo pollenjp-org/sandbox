@@ -33,7 +33,7 @@ mise trust && mise install && mise run setup
 # 3. ログインとプロジェクト作成(スプレッドシート UI を使うなら --type sheets)
 mise run login
 mise run build
-npx clasp create-script --type sheets --title "Drive 所有権一括譲渡" --rootDir dist
+pnpm exec clasp create-script --type sheets --title "Drive 所有権一括譲渡" --rootDir dist
 
 # 4. 設定(src/config.ts の newOwnerEmail 等)を編集して反映
 mise run push
@@ -62,14 +62,15 @@ mise run open
 ├── plantuml/       # 図のソース(.puml)と生成タスク
 ├── drawio/         # drawio を使う場合の手引き
 ├── mise.toml       # ツールバージョンとタスク定義
-└── package.json    # npm 依存(clasp / typescript / 型定義)
+├── package.json    # 依存パッケージ(clasp / typescript / 型定義)
+└── pnpm-workspace.yaml # pnpm 設定(リリース後 1 週間未満のバージョンを使わない)
 ```
 
 ## よく使うコマンド
 
 | コマンド | 内容 |
 | --- | --- |
-| `mise run setup` | npm 依存のインストール |
+| `mise run setup` | 依存パッケージのインストール(pnpm) |
 | `mise run build` | TypeScript → `dist/` へビルド |
 | `mise run push` | ビルドして Apps Script へ反映 |
 | `mise run open` | Apps Script エディタを開く |

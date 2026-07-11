@@ -1,30 +1,32 @@
 [tools]
 node = "24"
+# pnpm 自体にも「リリースから 1 週間未満のバージョンは使わない」ルールを適用して選定する
+"npm:pnpm" = "11.9.0"
 
 [tasks.setup]
-description = "npm 依存関係をインストールする"
-run = "npm install"
+description = "依存関係をインストールする(pnpm)"
+run = "pnpm install"
 
 [tasks.check]
 description = "TypeScript の型チェックのみ実行する(ファイル出力なし)"
-run = "npm run check"
+run = "pnpm run check"
 
 [tasks.build]
 description = "TypeScript をコンパイルして dist/ に GAS 用ファイルを生成する"
-run = "npm run build"
+run = "pnpm run build"
 
 [tasks.login]
 description = "clasp で Google アカウントにログインする"
-run = "npx clasp login"
+run = "pnpm exec clasp login"
 
 [tasks.push]
 description = "ビルドして Apps Script プロジェクトへ反映する"
 depends = ["build"]
-run = "npx clasp push"
+run = "pnpm exec clasp push"
 
 [tasks.open]
 description = "Apps Script エディタをブラウザで開く"
-run = "npx clasp open-script"
+run = "pnpm exec clasp open-script"
 
 [tasks.diagrams]
 description = "PlantUML 図を生成して docs/textbook/images/ へコピーする"

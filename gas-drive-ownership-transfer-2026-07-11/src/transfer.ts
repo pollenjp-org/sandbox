@@ -8,8 +8,12 @@
  * という「バッチ処理 + チェックポイント + 自動再開」の構成をとる。
  */
 
-/** 走査戦略を指定して一括譲渡を開始する(main.ts のエントリーポイントから呼ばれる) */
-function startTransferWithStrategy(strategy: TransferStrategy): void {
+/**
+ * 走査戦略を指定して一括譲渡を開始する(main.ts / webapp.ts から呼ばれる)。
+ * maxRuntimeMsOverride を指定すると「最初のバッチ」だけ時間予算を上書きできる
+ * (Web アプリからの開始時に HTTP 応答を素早く返すために使う)。
+ */
+function startTransferWithStrategy(strategy: TransferStrategy, maxRuntimeMsOverride?: number): void {
   // 手動実行とトリガー実行が同時に走らないよう、スクリプトロックで排他する
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(CONFIG.lockWaitMs)) {
@@ -37,7 +41,7 @@ function startTransferWithStrategy(strategy: TransferStrategy): void {
       }
     }
     logStartBanner(state);
-    runBatch(state);
+    runBatch(state, maxRuntimeMsOverride);
   } finally {
     lock.releaseLock();
   }
@@ -88,8 +92,9 @@ function resolveRootFolder(): GoogleAppsScript.Drive.Folder {
  * 時間切れで中断した場合は状態を保存して再開トリガーを予約し、
  * 最後まで到達した場合は完了処理を行う。
  */
-function runBatch(state: TransferState): void {
-  const deadline = Date.now() + CONFIG.maxRuntimeMs;
+function runBatch(state: TransferState, maxRuntimeMsOverride?: number): void {
+  const budgetMs = maxRuntimeMsOverride !== undefined ? maxRuntimeMsOverride : CONFIG.maxRuntimeMs;
+  const deadline = Date.now() + budgetMs;
   const suspended =
     state.strategy === 'tree' ? runTreeBatch(state, deadline) : runSearchBatch(state, deadline);
   if (suspended) {

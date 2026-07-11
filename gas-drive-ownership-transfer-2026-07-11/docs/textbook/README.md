@@ -27,6 +27,7 @@
 | 第 4 章 | [04-code-walkthrough.md](./04-code-walkthrough.md) | ソースコードをファイルごと・関数ごとに読み解く |
 | 第 5 章 | [05-operations.md](./05-operations.md) | 実行手順(運用マニュアル)。DRY RUN → 本番実行 → 完了確認、トラブルシューティング |
 | 付録 | [06-appendix.md](./06-appendix.md) | 発展的な話題。個人アカウントの場合、図の再生成方法(PlantUML / drawio)、参考リンク |
+| 第 7 章 | [07-webapp.md](./07-webapp.md) | (オプション)Web アプリ UI。ブラウザのボタンから実行する方法と、共有範囲(アクセス設定)の安全な選び方 |
 
 ## 図の一覧
 

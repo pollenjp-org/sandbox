@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <base target="_top" />
+    <style>
+      :root {
+        --border: #d0d4da;
+        --accent: #1a73e8;
+        --danger: #c5221f;
+        --ok: #188038;
+        --bg-soft: #f6f8fa;
+      }
+      * { box-sizing: border-box; }
+      body {
+        font-family: 'Noto Sans JP', 'Hiragino Sans', Meiryo, sans-serif;
+        margin: 0 auto; padding: 16px; max-width: 720px; color: #202124;
+      }
+      h1 { font-size: 1.3rem; margin: 0 0 4px; }
+      .sub { color: #5f6368; font-size: 0.85rem; margin-bottom: 16px; }
+      .card {
+        border: 1px solid var(--border); border-radius: 8px;
+        padding: 12px 16px; margin-bottom: 12px; background: #fff;
+      }
+      .card h2 { font-size: 0.95rem; margin: 0 0 8px; color: #3c4043; }
+      dl { display: grid; grid-template-columns: 11em 1fr; gap: 4px 8px; margin: 0; font-size: 0.9rem; }
+      dt { color: #5f6368; }
+      dd { margin: 0; word-break: break-all; }
+      .badge {
+        display: inline-block; padding: 2px 10px; border-radius: 999px;
+        font-size: 0.8rem; font-weight: 700; color: #fff;
+      }
+      .badge.dry { background: var(--ok); }
+      .badge.live { background: var(--danger); }
+      .warn {
+        background: #fce8e6; border: 1px solid #f5c6c4; color: var(--danger);
+        border-radius: 8px; padding: 10px 12px; font-size: 0.85rem; margin-bottom: 12px;
+      }
+      button {
+        font: inherit; padding: 8px 14px; margin: 4px 6px 4px 0;
+        border-radius: 6px; border: 1px solid var(--border);
+        background: var(--bg-soft); cursor: pointer;
+      }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      button.danger { background: #fff; border-color: var(--danger); color: var(--danger); }
+      button:disabled { opacity: 0.5; cursor: wait; }
+      #message {
+        white-space: pre-wrap; font-size: 0.85rem; background: var(--bg-soft);
+        border-radius: 6px; padding: 10px 12px; min-height: 2.2em;
+      }
+      #message.error { background: #fce8e6; color: var(--danger); }
+      .muted { color: #5f6368; font-size: 0.8rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Google Drive 所有権一括譲渡</h1>
+    <div class="sub">自分が所有するファイル/フォルダの所有権を、設定した相手へ一括で譲渡します。</div>
+
+    <div id="live-warning" class="warn" style="display: none">
+      ⚠️ <b>本番モード(dryRun: false)です。</b>開始すると実際に所有権が譲渡されます。
+      設定を見直す場合は <code>src/config.ts</code> を編集して push し直してください。
+    </div>
+
+    <div class="card">
+      <h2>設定(config.ts の内容)</h2>
+      <dl>
+        <dt>実行者(現在の所有者)</dt><dd id="my-email">読み込み中...</dd>
+        <dt>譲渡先</dt><dd id="new-owner">-</dd>
+        <dt>対象フォルダ ID</dt><dd id="root-folder">-</dd>
+        <dt>モード</dt><dd id="mode">-</dd>
+      </dl>
+    </div>
+
+    <div class="card">
+      <h2>操作</h2>
+      <button id="btn-count" onclick="countOwned()">所有アイテム数を確認</button>
+      <button id="btn-tree" class="primary" onclick="startRun('tree')">ツリー走査で開始</button>
+      <button id="btn-search" onclick="startRun('search')">検索走査で開始</button>
+      <button id="btn-refresh" onclick="refreshStatus(true)">進捗を更新</button>
+      <button id="btn-stop" class="danger" onclick="stopRun()">停止(リセット)</button>
+      <div class="muted">
+        開始後はこのページを閉じても、処理はサーバー側のトリガーで自動継続します。
+        詳細ログは Apps Script エディタの「実行数」で確認できます。
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>進捗</h2>
+      <div id="progress">読み込み中...</div>
+    </div>
+
+    <div id="message"></div>
+
+    <script>
+      let busy = false;
+
+      function setBusy(value) {
+        busy = value;
+        document.querySelectorAll('button').forEach((b) => (b.disabled = value));
+      }
+
+      function showMessage(text, isError) {
+        const el = document.getElementById('message');
+        el.textContent = text;
+        el.className = isError ? 'error' : '';
+      }
+
+      function onFailure(error) {
+        setBusy(false);
+        showMessage('エラー: ' + (error && error.message ? error.message : error), true);
+      }
+
+      function render(status) {
+        document.getElementById('my-email').textContent = status.myEmail;
+        document.getElementById('new-owner').textContent = status.newOwnerEmail;
+        document.getElementById('root-folder').textContent =
+          status.rootFolderId || '(マイドライブのルート)';
+        const mode = document.getElementById('mode');
+        mode.innerHTML = status.dryRun
+          ? '<span class="badge dry">DRY RUN(予行演習)</span>'
+          : '<span class="badge live">本番モード</span>';
+        document.getElementById('live-warning').style.display = status.dryRun ? 'none' : 'block';
+
+        const progress = document.getElementById('progress');
+        if (!status.running || !status.summary) {
+          progress.innerHTML = '<span class="muted">実行中の処理はありません。</span>';
+          return;
+        }
+        const s = status.summary;
+        progress.innerHTML =
+          '<dl>' +
+          '<dt>モード</dt><dd>' + (s.strategy === 'tree' ? 'ツリー走査' : '検索走査') +
+          (s.dryRun ? '(DRY RUN)' : '(本番)') + '</dd>' +
+          '<dt>バッチ回数</dt><dd>' + s.batchCount + '</dd>' +
+          '<dt>走査済み</dt><dd>' + s.scanned + ' 件</dd>' +
+          (s.dryRun
+            ? '<dt>譲渡対象(DRY RUN)</dt><dd>' + s.planned + ' 件</dd>'
+            : '<dt>譲渡済み</dt><dd>' + s.transferred + ' 件</dd>') +
+          '<dt>スキップ</dt><dd>' + s.skippedNotOwned + ' 件</dd>' +
+          '<dt>エラー</dt><dd>' + s.errors + ' 件</dd>' +
+          '<dt>未処理フォルダキュー</dt><dd>' + s.queueLength + ' 件</dd>' +
+          '<dt>開始時刻</dt><dd>' + s.startedAt + '</dd>' +
+          '</dl>';
+      }
+
+      function scheduleAutoRefresh(status) {
+        if (status && status.running) {
+          setTimeout(() => { if (!busy) refreshStatus(false); }, 20000);
+        }
+      }
+
+      function refreshStatus(manual) {
+        if (manual) setBusy(true);
+        google.script.run
+          .withSuccessHandler((status) => {
+            setBusy(false);
+            render(status);
+            if (manual) showMessage('進捗を更新しました。');
+            scheduleAutoRefresh(status);
+          })
+          .withFailureHandler(onFailure)
+          .webAppGetStatus();
+      }
+
+      function countOwned() {
+        setBusy(true);
+        showMessage('所有アイテム数を数えています(最大 1 分ほどかかります)...');
+        google.script.run
+          .withSuccessHandler((text) => { setBusy(false); showMessage(text); })
+          .withFailureHandler(onFailure)
+          .webAppCountOwned();
+      }
+
+      function startRun(strategy) {
+        const label = strategy === 'tree' ? 'ツリー走査' : '検索走査';
+        if (!confirm(label + 'で一括譲渡を開始します。よろしいですか?')) return;
+        const isDry = document.querySelector('.badge.dry') !== null;
+        if (!isDry && !confirm('⚠️ 本番モードです。実際に所有権が譲渡され、元に戻すのは大変です。本当に開始しますか?')) {
+          return;
+        }
+        setBusy(true);
+        showMessage('開始しました。最初のバッチ(最大 45 秒)を実行中...');
+        const call = google.script.run
+          .withSuccessHandler((status) => {
+            setBusy(false);
+            render(status);
+            showMessage(status.running
+              ? '最初のバッチが完了しました。残りはサーバー側で自動継続します。'
+              : '処理が完了しました。詳細は Apps Script エディタの実行ログを確認してください。');
+            scheduleAutoRefresh(status);
+          })
+          .withFailureHandler(onFailure);
+        if (strategy === 'tree') call.webAppStartTree();
+        else call.webAppStartSearch();
+      }
+
+      function stopRun() {
+        if (!confirm('処理を中止して進捗をリセットします。よろしいですか?\n(すでに譲渡した分は戻りません)')) return;
+        setBusy(true);
+        google.script.run
+          .withSuccessHandler((status) => {
+            setBusy(false);
+            render(status);
+            showMessage('停止し、保存された進捗とトリガーをリセットしました。');
+          })
+          .withFailureHandler(onFailure)
+          .webAppStop();
+      }
+
+      refreshStatus(false);
+    </script>
+  </body>
+</html>

@@ -83,6 +83,11 @@ function showStatus(): void {
  * 実行前の規模把握と、実行後の「残っていないか」の確認に使う。
  */
 function countOwnedFiles(): void {
+  console.log(describeOwnedItems());
+}
+
+/** 所有アイテム数の概算メッセージを作る(countOwnedFiles と Web アプリ UI で共用) */
+function describeOwnedItems(): string {
   const limit = 1000;
   let fileCount = 0;
   const files = DriveApp.searchFiles(OWNED_ITEMS_QUERY);
@@ -97,5 +102,5 @@ function countOwnedFiles(): void {
     folderCount++;
   }
   const format = (n: number): string => (n >= limit ? `${limit} 件以上` : `${n} 件`);
-  console.log(`自分が所有するアイテム: ファイル ${format(fileCount)} / フォルダ ${format(folderCount)}`);
+  return `自分が所有するアイテム: ファイル ${format(fileCount)} / フォルダ ${format(folderCount)}`;
 }

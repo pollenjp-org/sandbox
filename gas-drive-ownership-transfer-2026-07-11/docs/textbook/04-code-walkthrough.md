@@ -17,7 +17,9 @@ gas-drive-ownership-transfer-2026-07-11/
 │   ├── state.ts           # 進捗の保存・復元(チェックポイント)
 │   ├── triggers.ts        # 再開トリガーの管理
 │   ├── transfer.ts        # 中核ロジック(走査と譲渡)
-│   └── main.ts            # エントリーポイント(実行する関数)
+│   ├── main.ts            # エントリーポイント(実行する関数)
+│   ├── webapp.ts          # Web アプリ UI のサーバー側(第 7 章)
+│   └── index.html         # Web アプリ UI の画面(第 7 章)
 ├── dist/                  # ビルド成果物(自動生成、Git 管理外)
 ├── docs/textbook/         # この教科書
 └── plantuml/              # 図の生成元(.puml)と mise タスク
@@ -424,7 +426,11 @@ function resumeTransfer(): void {
 
 ロックが取れなかったとき(前のバッチがまだ動いている等)に、エラーで死ぬのではなく**再予約して身を引く**ことで、再開の連鎖が途切れないようにしています。
 
-## 4.10 コードを読むときのコツ
+## 4.10 webapp.ts / index.html — Web アプリ UI(オプション)
+
+ブラウザのボタン操作で実行するための UI です。中身は `main.ts` と同じく薄いラッパーで、実処理は transfer.ts へ委譲します。デプロイ方法・**共有範囲(アクセス設定)の考え方**・コード解説は[第 7 章](./07-webapp.md)にまとめています。
+
+## 4.11 コードを読むときのコツ
 
 1. **エントリーポイントから追う**: `main.ts` の `startTransfer()` → `startTransferWithStrategy()` → `runBatch()` → `runTreeBatch()` → `transferOwnershipIfOwned()` の順に読むと、呼び出しの流れがそのまま処理の流れです
 2. **「状態」を主役に読む**: どの関数も「`TransferState` を作る・進める・保存する・復元する」のどれかをしています。図 4-1 と `types.d.ts` を手元に置いて読むと迷子になりません

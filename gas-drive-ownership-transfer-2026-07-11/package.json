@@ -6,7 +6,7 @@
   "scripts": {
     "check": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "build": "npm run clean && tsc && cp src/appsscript.json dist/appsscript.json"
+    "build": "npm run clean && tsc && cp src/appsscript.json dist/appsscript.json && cp src/index.html dist/index.html"
   },
   "devDependencies": {
     "@google/clasp": "^3.3.0",

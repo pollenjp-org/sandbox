@@ -54,6 +54,34 @@ interface FolderProgress {
   token: string | null;
 }
 
+/** Web アプリ UI に返す、実行中ジョブのサマリ */
+interface WebAppRunSummary {
+  strategy: TransferStrategy;
+  dryRun: boolean;
+  batchCount: number;
+  scanned: number;
+  transferred: number;
+  planned: number;
+  skippedNotOwned: number;
+  errors: number;
+  /** ツリー走査での未処理フォルダキュー数(検索走査では 0) */
+  queueLength: number;
+  startedAt: string;
+}
+
+/** Web アプリ UI に返す現在の状況(google.script.run で HTML 側へ渡る) */
+interface WebAppStatus {
+  /** 実行者(このスクリプトが動いている権限)のメールアドレス */
+  myEmail: string;
+  newOwnerEmail: string;
+  dryRun: boolean;
+  rootFolderId: string;
+  /** 未完了の処理が保存されているか */
+  running: boolean;
+  /** running のときの進捗サマリ(なければ null) */
+  summary: WebAppRunSummary | null;
+}
+
 /** バッチをまたいでスクリプトプロパティに永続化する実行状態 */
 interface TransferState {
   strategy: TransferStrategy;

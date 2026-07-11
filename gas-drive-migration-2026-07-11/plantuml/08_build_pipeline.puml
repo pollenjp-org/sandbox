@@ -2,14 +2,14 @@
 skinparam defaultFontName "Noto Sans CJK JP"
 skinparam shadowing false
 left to right direction
-title 開発フロー — TypeScript から Apps Script プロジェクトへ
+title 開発フロー — TypeScript からスプレッドシート紐づきスクリプトへ
 
 file "src/main.ts\n(TypeScript)" as ts
 file "src/appsscript.json\n(マニフェスト)" as manifest
 component "tsc\n(型チェック + 変換)" as tsc
 file "dist/main.js\n(GAS 用 JavaScript)" as js
 file "dist/appsscript.json" as manifest2
-cloud "Apps Script\nプロジェクト\n(script.google.com)" as gasproj
+cloud "スプレッドシートに紐づく\nApps Script プロジェクト\n(拡張機能 → Apps Script)" as gasproj
 
 ts --> tsc : mise run build
 manifest --> manifest2 : コピー
@@ -18,8 +18,8 @@ js --> gasproj : 方法A: エディタへ貼り付け\n方法B: mise run clasp:p
 manifest2 --> gasproj
 
 note bottom of gasproj
-  どちらの方法でも結果は同じ。
-  clasp はコマンド1発で反映できるため、
-  繰り返し修正する開発時に向く
+  スプレッドシートの「拡張機能 → Apps Script」で開く
+  container-bound スクリプト。onOpen でメニューが追加され、
+  以後は利用者がスプレッドシートだけで操作できる。
 end note
 @enduml

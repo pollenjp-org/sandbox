@@ -24,6 +24,10 @@
 | 用語 | 意味 | 初出 |
 | --- | --- | --- |
 | Google Apps Script (GAS) | Google のサーバーで動く JavaScript 実行環境 | [第2章](./02-solution-architecture.md) |
+| コンテナバインドスクリプト | スプレッドシート等に紐づけて作る GAS。今回の操作画面化の土台 | [第2章](./02-solution-architecture.md) |
+| onOpen / カスタムメニュー | シートを開くと自動実行され独自メニューを足す仕組み | [第3章](./03-setup-guide.md) |
+| トースト | 画面右下に数秒出る小さな通知 (`toast()`) | [第4章](./04-code-walkthrough.md) |
+| チェックボックス / 保護 | 真偽値入力用のセル機能と、誤編集を防ぐ範囲保護 | [第3章](./03-setup-guide.md) |
 | Drive API | プログラムからドライブを操作する公式インターフェース | [第2章](./02-solution-architecture.md) |
 | 高度なサービス | GAS から各種 Google API をフルスペックで使う仕組み | [第2章](./02-solution-architecture.md) |
 | OAuth | アプリにアカウント操作を許可する標準的な認可の仕組み | [第2章](./02-solution-architecture.md) |

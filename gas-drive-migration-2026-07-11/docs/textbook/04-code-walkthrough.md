@@ -3,22 +3,27 @@
 [← 第3章](./03-setup-guide.md) | [目次](./README.md) | [次章: 開発環境 →](./05-dev-environment.md)
 
 この章ではソースコード [`src/main.ts`](../../src/main.ts) の設計と実装を読み解く。
-コードは1ファイル約650行で、次のセクション構成になっている。
+コードは大きく **「スプレッドシート UI 層」** と **「移行エンジン層」** に分かれ、
+次のセクション構成になっている。
 
-| セクション | 内容 |
-| --- | --- |
-| 設定 (`CONFIG`) | 利用者が書き換える変数 (→ [第3章 3.6](./03-setup-guide.md#36-config-設定変数-を書き換える)) |
-| 型定義 | `FolderTask` / `MigrationState` などのデータ構造 |
-| エントリポイント | エディタから実行する6つの関数 |
-| メインループ | `runLoop_` / `processFolder_` — 心臓部 |
-| Drive 操作 | 一覧取得・フォルダ作成・ファイル移動 |
-| 中断・再開 | トリガー管理 |
-| 状態の保存と読み込み | スクリプトプロパティへのチャンク保存 |
-| ユーティリティ | リトライ・ログ・レポートなど |
+| 層 | セクション | 内容 |
+| --- | --- | --- |
+| UI | スプレッドシート UI 定義 | 設定項目 `SETTING_DEFS`・シート名などの定義 |
+| UI | メニュー | `onOpen` / `setupSheets` / `showHelp` |
+| UI | エントリポイント | メニュー・トリガーから実行する関数群 |
+| UI | 設定シートの読み込み | `loadConfig_` — セル値を型付き設定に変換 |
+| UI | シートの構築 | `buildSettingsSheet_` など3枚のシート生成 |
+| UI | 進捗シートへの書き出し | `writeStatusToSheet_` |
+| エンジン | メインループ | `runLoop_` / `processFolder_` — 心臓部 |
+| エンジン | Drive 操作 | 一覧取得・フォルダ作成・ファイル移動 |
+| エンジン | 中断・再開 | トリガー管理 |
+| エンジン | 状態の保存と読み込み | スクリプトプロパティへのチャンク保存 |
+| 共通 | ユーティリティ | UI ヘルパー・リトライ・ログ・レポートなど |
 
 > 💡 GAS の慣習として、エディタの実行メニューに出したくない内部関数には
 > 名前の末尾に `_` を付けている (例: `runLoop_`)。末尾 `_` の関数は
-> GAS 上で実行対象として選べなくなる。
+> GAS 上で実行対象として選べず、カスタムメニューからも呼べない。逆に
+> `startMigration` など**メニューやトリガーから呼ぶ関数は末尾 `_` を付けない**。
 
 ## 4.1 処理の全体像
 
@@ -26,8 +31,54 @@
 
 ![シーケンス図](../../plantuml/out/04_sequence_migration.svg)
 
-`startMigration` が検証と初期化を行い、`runLoop_` がキューを消化する。
-時間切れになったらトリガーに引き継ぎ、`resumeMigration` が続きを実行する。
+利用者がメニューから `startMigration` を呼ぶと、`loadConfig_` が「設定」シートを
+読み、検証と初期化を行い、`runLoop_` がキューを消化する。時間切れになったら
+トリガーに引き継ぎ、`resumeMigration` が続きを実行する。進捗は随時
+`writeStatusToSheet_` が「進捗」シートへ書き出す。
+
+## 4.0 UI 層 — スプレッドシートを唯一の窓口にする
+
+利用者がコードを触らずに済むよう、設定も操作も結果表示もすべて
+スプレッドシート上で行う。UI 層はそのための薄いラッパーである。
+
+### 設定は「定義の配列」から自動生成する
+
+設定項目は `SETTING_DEFS` という配列に一元定義している。ここに1要素足すだけで、
+設定シートの行・チェックボックス・検証・`Config` への読み込みまで自動的に増える
+(項目を増やしやすい設計)。
+
+```typescript
+const SETTING_DEFS: SettingDef[] = [
+  { key: 'SOURCE_FOLDER_ID', label: '移行元フォルダID', type: 'string',  default: '',   required: true, description: '...' },
+  { key: 'DRY_RUN',          label: 'ドライラン（お試し・変更なし）', type: 'boolean', default: true,  description: '...' },
+  // ... 以下、全設定項目
+];
+```
+
+`loadConfig_` は「設定」シートを走査し、A列のラベルをキーに B列の値を拾って、
+型 (`string`/`boolean`/`number`) に応じて変換 (`coerceValue_`) し、必須項目が空なら
+分かりやすいエラーを投げる。コード内に散らばっていた旧 `CONFIG` 定数は廃止され、
+**設定の出どころはスプレッドシート1か所**になった。
+
+<details>
+<summary>📖 用語解説: onOpen / カスタムメニュー / トースト</summary>
+
+`onOpen` はシートを開くと自動実行される特殊関数で、ここで
+`createMenu('📁 ドライブ移行')...addItem('②移行を開始', 'startMigration')` のように
+メニューを組み立てる。`addItem(ラベル, 関数名)` の関数名が、クリック時に実行
+される関数。処理の合図には `SpreadsheetApp.getActiveSpreadsheet().toast(...)`
+(画面右下に数秒出る小さな通知=トースト) を使っている。
+
+</details>
+
+### トリガー実行では UI を触らないこと
+
+`resumeMigration` は時間主導トリガー (画面のない文脈) から呼ばれる。そこで
+`SpreadsheetApp.getUi()` を呼ぶと例外になる。これを避けるため、UI 操作は
+`getUiOrNull_()` (UI が無ければ `null` を返す) と `toast_()` (失敗を握りつぶす)
+で包み、**トリガー経路では UI に触れない**設計にしている。設定シートの読み込みや
+進捗シートへの書き込みは、コンテナバインドのおかげでトリガー実行時も
+`getActiveSpreadsheet()` 経由で問題なく行える。
 
 ## 4.2 データ構造 — 「フォルダの対応」をキューで持つ
 
@@ -261,21 +312,31 @@ MigrationState ──JSON.stringify──▶ "{...長い文字列...}"
 
 ## 4.9 関数リファレンス
 
-### エディタから実行する関数 (エントリポイント)
+### メニュー / トリガーから実行する関数 (エントリポイント)
 
-| 関数 | 役割 |
-| --- | --- |
-| `startMigration()` | 移行を開始する。進行中ジョブがあれば誤操作防止で拒否 |
-| `resumeMigration()` | 中断からの再開。トリガーが自動で呼ぶ。`ERROR` 停止後の手動復帰にも使う |
-| `printStatus()` | 進捗レポート (統計・残数・失敗一覧) をログに出す |
-| `cancelMigration()` | 中止。トリガーを消し状態を `CANCELLED` に |
-| `resetState()` | 状態とトリガーを完全に消す |
-| `trashEmptySourceFolders()` | 移行後の後片付け。完全に空のフォルダだけをゴミ箱へ |
+いずれも末尾に `_` が付かず、カスタムメニューまたはトリガーから呼ばれる。
+
+| 関数 | メニュー項目 | 役割 |
+| --- | --- | --- |
+| `onOpen()` | (自動) | シートを開くとメニュー「📁 ドライブ移行」を追加する |
+| `setupSheets()` | ① 設定シートを準備 / 初期化 | 設定・進捗・失敗一覧の3シートを生成 (既存の入力値は保持) |
+| `startMigration()` | ② 移行を開始 | 設定を読んで検証・確認ダイアログ後に開始。進行中ジョブがあれば拒否 |
+| `showStatus()` | ③ 進捗を更新して表示 | 現在の状態を進捗/失敗一覧シートへ書き出し表示 |
+| `resumeMigration()` | 中断からの再開 | 中断からの再開。トリガーが自動で呼ぶ。`ERROR` 復帰にも使う |
+| `cancelMigration()` | 移行を中止 | 中止。トリガーを消し状態を `CANCELLED` に |
+| `resetState()` | 状態をリセット | 状態とトリガーを消し、進捗/失敗一覧シートを初期化 |
+| `trashEmptySourceFolders()` | 【後片付け】空フォルダを削除 | 完全に空のフォルダだけをゴミ箱へ |
+| `showHelp()` | ヘルプを表示 | 使い方の要約をダイアログ表示 |
 
 ### 主な内部関数
 
 | 関数 | 役割 |
 | --- | --- |
+| `loadConfig_()` | 「設定」シートを読み `Config` を構築・検証。`cfg_()` がキャッシュを提供 |
+| `coerceValue_(raw, def)` | セル値を設定項目の型 (string/boolean/number) に変換 |
+| `buildSettingsSheet_ / buildStatusSheet_ / buildFailuresSheet_` | 各シートの生成・書式・保護 |
+| `writeStatusToSheet_(state)` | 進捗・失敗一覧シートへ状態を書き出す (`maybeWriteStatus_` が間引く) |
+| `getUiOrNull_ / confirm_ / alertOrLog_ / toast_` | UI ヘルパー (トリガー実行時は安全に無効化) |
 | `runLoop_(state)` | メインループ。時間管理と完了処理・エラー3連続の停止判定 |
 | `processFolder_(task, state, deadline)` | 1フォルダ分の処理 (ファイル移動 → サブフォルダ作成 → キュー追加) |
 | `resolveDestination_(id)` | 移行先 ID の検証。共有ドライブ ID / フォルダ ID の両対応、マイドライブ指定はエラー |

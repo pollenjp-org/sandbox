@@ -1,0 +1,47 @@
+@startuml 09_spreadsheet_ui
+skinparam defaultFontName "Noto Sans CJK JP"
+skinparam shadowing false
+skinparam roundCorner 8
+title スプレッドシート UI の全体像（利用者が触るのはここだけ）
+
+rectangle "Google スプレッドシート" as ss #FFFFFF {
+
+  rectangle "メニュー「📁 ドライブ移行」" as menu #E8F0FE {
+    card "① 設定シートを準備 / 初期化" as m1
+    card "② 移行を開始（設定に従う）" as m2
+    card "③ 進捗を更新して表示" as m3
+    card "中断からの再開 / 中止 / リセット" as m4
+    card "【後片付け】空フォルダを削除" as m5
+  }
+
+  rectangle "「設定」シート" as settings #FFF8E1 {
+    card "移行元フォルダID           [____入力____]" as s1
+    card "移行先ID(共有ドライブ/フォルダ) [____入力____]" as s2
+    card "ドライラン（お試し）          [✓]" as s3
+    card "トップフォルダを作る          [✓]" as s4
+    card "移動失敗時にコピー救済        [✓]" as s5
+    card "完了通知メール               [____入力____]" as s6
+    card "[詳細] 実行制限/待機/ページ/リトライ" as s7
+  }
+
+  rectangle "「進捗」シート" as prog #E6F4EA {
+    card "状態 / モード / 開始 / 最終更新" as p1
+    card "処理・作成・移動・コピー・失敗・残り 件数" as p2
+  }
+
+  rectangle "「失敗一覧」シート" as fail #FCE8E6 {
+    card "パス / ファイル名 / ID / 理由" as f1
+  }
+}
+
+m1 ..> settings : 3枚のシートを自動生成
+m2 ..> settings : 入力値を読んで実行
+m2 ..> prog : 実行状況を書き込む
+m3 ..> prog : 最新の進捗を反映
+m2 ..> fail : 失敗を書き込む
+
+note bottom of settings
+  黄色い「入力値」列だけが編集可能。
+  項目名と説明の列は誤編集防止で保護されている。
+end note
+@enduml

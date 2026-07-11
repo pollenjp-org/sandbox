@@ -3,18 +3,18 @@ skinparam defaultFontName "Noto Sans CJK JP"
 skinparam shadowing false
 title 移行ジョブの状態遷移
 
-[*] --> RUNNING : startMigration()
+[*] --> RUNNING : メニュー「②移行を開始」\n(startMigration)
 
 RUNNING --> SUSPENDED : 制限時間を超過\n(状態保存 + 再開トリガー予約)
-SUSPENDED --> RUNNING : resumeMigration()\n(トリガーで自動 / 手動でも可)
+SUSPENDED --> RUNNING : resumeMigration()\n(トリガーで自動 / メニュー「再開」でも可)
 RUNNING --> DONE : キューが空になった
 RUNNING --> ERROR : 想定外エラーが3回連続\n(自動再開を停止して通知)
-ERROR --> RUNNING : 原因に対処したあと\nresumeMigration() を手動実行
-RUNNING --> CANCELLED : cancelMigration()
-SUSPENDED --> CANCELLED : cancelMigration()
-DONE --> [*] : resetState()
-CANCELLED --> [*] : resetState()
-ERROR --> [*] : resetState()
+ERROR --> RUNNING : 原因に対処したあと\nメニュー「中断からの再開」
+RUNNING --> CANCELLED : メニュー「移行を中止」
+SUSPENDED --> CANCELLED : メニュー「移行を中止」
+DONE --> [*] : メニュー「状態をリセット」
+CANCELLED --> [*] : メニュー「状態をリセット」
+ERROR --> [*] : メニュー「状態をリセット」
 
 note right of RUNNING
   実行中はキューのフォルダを1つずつ処理し、

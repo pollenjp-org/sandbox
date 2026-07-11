@@ -163,8 +163,8 @@ mise run clasp:login
 
 # 3. 既に作った GAS プロジェクトと紐付ける
 cp .clasp.json.example .clasp.json
-#    エディタの「プロジェクトの設定」→「スクリプト ID」をコピーして
-#    .clasp.json の scriptId に貼る
+#    スプレッドシートの「拡張機能 → Apps Script」で開いたエディタの
+#    「プロジェクトの設定」→「スクリプト ID」をコピーして .clasp.json の scriptId に貼る
 
 # 4. ビルドして反映
 mise run clasp:push
@@ -172,6 +172,11 @@ mise run clasp:push
 
 以後、コードを修正したら `mise run clasp:push` するだけで GAS 側に反映される。
 `.clasp.json` は個人環境ごとに違うため Git 管理外 (`.gitignore` 済み)。
+
+> 💡 本ツールはスプレッドシートに紐づく **container-bound スクリプト**。
+> clasp は bound スクリプトにも push できるが、scriptId は必ず
+> 「スプレッドシート → 拡張機能 → Apps Script」で開いたプロジェクトのものを使うこと。
+> (`clasp create` で新規スタンドアロン作成するとスプレッドシートに紐づかないので注意)
 
 > 💡 push 対象は `dist/` ディレクトリ (`.clasp.json` の `rootDir`)。
 > `src/*.ts` を直接 push しているのではなく、ビルド成果物を送っている。

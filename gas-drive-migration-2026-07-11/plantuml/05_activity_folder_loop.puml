@@ -4,7 +4,7 @@ skinparam shadowing false
 title runLoop / processFolder の処理フロー
 
 start
-:CONFIG を検証;
+:「設定」シートを読み込み・検証;
 :移行先を解決\n(共有ドライブ内であることを確認);
 :キューに (移行元ルート, 移行先ルート) を投入;
 

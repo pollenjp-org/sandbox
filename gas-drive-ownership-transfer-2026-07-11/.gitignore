@@ -1,0 +1,15 @@
+# npm
+node_modules/
+
+# ビルド成果物(tsc の出力)
+dist/
+
+# clasp の個人設定(スクリプト ID は人ごとに異なるためコミットしない)
+.clasp.json
+
+# PlantUML の生成物(docs/textbook/images/ にコピーしたものをコミットする)
+plantuml/out/
+
+# mise のローカル上書き設定
+mise.local.toml
+.mise.local.toml

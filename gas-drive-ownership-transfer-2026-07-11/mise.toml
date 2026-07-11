@@ -1,0 +1,38 @@
+[tools]
+node = "22"
+
+[tasks.setup]
+description = "npm 依存関係をインストールする"
+run = "npm install"
+
+[tasks.check]
+description = "TypeScript の型チェックのみ実行する(ファイル出力なし)"
+run = "npm run check"
+
+[tasks.build]
+description = "TypeScript をコンパイルして dist/ に GAS 用ファイルを生成する"
+run = "npm run build"
+
+[tasks.login]
+description = "clasp で Google アカウントにログインする"
+run = "npx clasp login"
+
+[tasks.push]
+description = "ビルドして Apps Script プロジェクトへ反映する"
+depends = ["build"]
+run = "npx clasp push"
+
+[tasks.open]
+description = "Apps Script エディタをブラウザで開く"
+run = "npx clasp open-script"
+
+[tasks.diagrams]
+description = "PlantUML 図を生成して docs/textbook/images/ へコピーする"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+(cd plantuml && mise run plantuml:generate svg)
+mkdir -p docs/textbook/images
+cp plantuml/out/*.svg docs/textbook/images/
+echo "Copied diagrams to docs/textbook/images/"
+'''

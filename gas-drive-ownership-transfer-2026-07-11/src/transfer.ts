@@ -10,12 +10,14 @@
 
 /**
  * 走査戦略を指定して一括譲渡を開始する(main.ts / webapp.ts から呼ばれる)。
- * maxRuntimeMsOverride を指定すると「最初のバッチ」だけ時間予算を上書きできる
- * (Web アプリからの開始時に HTTP 応答を素早く返すために使う)。
+ * options で CONFIG の既定値を上書きできる(Web アプリ UI からの利用者ごとの
+ * 入力値や、応答性確保のための「最初のバッチだけ短い時間予算」を渡す)。
  */
-function startTransferWithStrategy(strategy: TransferStrategy, maxRuntimeMsOverride?: number): void {
-  // 手動実行とトリガー実行が同時に走らないよう、スクリプトロックで排他する
-  const lock = LockService.getScriptLock();
+function startTransferWithStrategy(strategy: TransferStrategy, options?: TransferStartOptions): void {
+  const opts: TransferStartOptions = options === undefined ? {} : options;
+  // 同じ利用者の手動実行とトリガー実行が同時に走らないよう、ユーザーロックで排他する。
+  // (ユーザーロックは利用者ごとに独立しているため、別の利用者の実行は妨げない)
+  const lock = LockService.getUserLock();
   if (!lock.tryLock(CONFIG.lockWaitMs)) {
     throw new Error(
       '別の実行が進行中のためロックを取得できませんでした。しばらく待ってから再実行してください。'
@@ -30,41 +32,46 @@ function startTransferWithStrategy(strategy: TransferStrategy, maxRuntimeMsOverr
     // 前回の実行の残骸(再開トリガー)が残っていれば掃除する
     deleteResumeTriggers();
 
-    const state = createInitialState(strategy);
+    const state = createInitialState(strategy, opts);
     if (strategy === 'tree') {
-      const root = resolveRootFolder();
+      const rootFolderId =
+        opts.rootFolderId !== undefined ? opts.rootFolderId : CONFIG.rootFolderId;
+      const root = resolveRootFolder(rootFolderId);
       state.folderQueue.push(root.getId());
       // 明示的に指定したルートフォルダ自身は走査中に列挙されないため、ここで譲渡する。
       // マイドライブのルート(rootFolderId が空文字)は譲渡できないので対象外。
-      if (state.includeFolders && CONFIG.rootFolderId !== '') {
+      if (state.includeFolders && rootFolderId !== '') {
         transferOwnershipIfOwned(root, state, 'folder');
       }
     }
     logStartBanner(state);
-    runBatch(state, maxRuntimeMsOverride);
+    runBatch(state, opts.maxRuntimeMs);
   } finally {
     lock.releaseLock();
   }
 }
 
-/** CONFIG を検証し、実行状態の初期値を作る */
-function createInitialState(strategy: TransferStrategy): TransferState {
+/** 設定(CONFIG + 上書きオプション)を検証し、実行状態の初期値を作る */
+function createInitialState(strategy: TransferStrategy, opts: TransferStartOptions): TransferState {
   const myEmail = Session.getEffectiveUser().getEmail();
-  const newOwnerEmail = CONFIG.newOwnerEmail.trim();
+  const newOwnerEmail = (
+    opts.newOwnerEmail !== undefined ? opts.newOwnerEmail : CONFIG.newOwnerEmail
+  ).trim();
   if (newOwnerEmail === '' || newOwnerEmail.indexOf('@') === -1) {
-    throw new Error('CONFIG.newOwnerEmail に譲渡先のメールアドレスを設定してください。');
+    throw new Error('譲渡先のメールアドレスを設定してください。');
   }
   if (newOwnerEmail.toLowerCase() === myEmail.toLowerCase()) {
-    throw new Error('譲渡先が自分自身になっています。CONFIG.newOwnerEmail を確認してください。');
+    throw new Error('譲渡先が自分自身になっています。譲渡先のメールアドレスを確認してください。');
   }
   return {
     strategy,
     myEmail,
     newOwnerEmail,
-    dryRun: CONFIG.dryRun,
+    dryRun: opts.dryRun !== undefined ? opts.dryRun : CONFIG.dryRun,
     includeFolders: CONFIG.includeFolders,
     startedAt: new Date().toISOString(),
     batchCount: 1,
+    sheetLog: opts.sheetLog === true,
     folderQueue: [],
     current: null,
     searchPhase: 'files',
@@ -73,16 +80,26 @@ function createInitialState(strategy: TransferStrategy): TransferState {
   };
 }
 
-/** CONFIG.rootFolderId から走査の起点となるフォルダを解決する */
-function resolveRootFolder(): GoogleAppsScript.Drive.Folder {
-  if (CONFIG.rootFolderId === '') {
+/**
+ * フォルダ ID の入力値を正規化する。
+ * Drive のフォルダ URL がそのまま貼り付けられた場合は ID 部分を取り出す。
+ */
+function normalizeFolderIdInput(value: string): string {
+  const trimmed = value.trim();
+  const match = trimmed.match(/\/folders\/([A-Za-z0-9_-]+)/);
+  return match !== null ? match[1] : trimmed;
+}
+
+/** 走査の起点となるフォルダを解決する(空文字 = マイドライブのルート) */
+function resolveRootFolder(rootFolderId: string): GoogleAppsScript.Drive.Folder {
+  if (rootFolderId === '') {
     return DriveApp.getRootFolder();
   }
   try {
-    return DriveApp.getFolderById(CONFIG.rootFolderId);
+    return DriveApp.getFolderById(rootFolderId);
   } catch (e) {
     throw new Error(
-      `CONFIG.rootFolderId のフォルダが見つかりません: ${CONFIG.rootFolderId}(アクセス権と ID を確認してください)`
+      `起点フォルダが見つかりません: ${rootFolderId}(アクセス権と ID を確認してください)`
     );
   }
 }
@@ -104,6 +121,8 @@ function runBatch(state: TransferState, maxRuntimeMsOverride?: number): void {
   } else {
     finishTransfer(state);
   }
+  // シート UI から開始した実行では、このバッチで溜めたログ行を台帳シートへまとめて書き出す
+  flushSheetLog(state);
 }
 
 /**
@@ -212,9 +231,13 @@ function runSearchBatch(state: TransferState, deadline: number): boolean {
  */
 function transferOwnershipIfOwned(item: DriveItem, state: TransferState, kind: 'file' | 'folder'): void {
   state.stats.scanned++;
-  let label = kind === 'file' ? 'ファイル' : 'フォルダ';
+  const kindLabel = kind === 'file' ? 'ファイル' : 'フォルダ';
+  let name = '(名称不明)';
+  let id = '';
   try {
-    label = `${label}「${item.getName()}」(id: ${item.getId()})`;
+    id = item.getId();
+    name = item.getName();
+    const label = `${kindLabel}「${name}」(id: ${id})`;
     // 共有ドライブ内のアイテムには所有者がいないため null が返ることがある
     const owner: GoogleAppsScript.Base.User | null = item.getOwner();
     const ownerEmail = owner === null ? '' : owner.getEmail();
@@ -225,15 +248,18 @@ function transferOwnershipIfOwned(item: DriveItem, state: TransferState, kind: '
     if (state.dryRun) {
       state.stats.planned++;
       console.log(`[DRY RUN] 譲渡対象: ${label}`);
+      recordSheetLog(state, 'DRY RUN 対象', kindLabel, name, id, '');
       return;
     }
     item.setOwner(state.newOwnerEmail);
     state.stats.transferred++;
     console.log(`譲渡完了: ${label}`);
+    recordSheetLog(state, '譲渡完了', kindLabel, name, id, '');
   } catch (e) {
     state.stats.errors++;
     const message = e instanceof Error ? e.message : String(e);
-    console.error(`譲渡失敗: ${label}: ${message}`);
+    console.error(`譲渡失敗: ${kindLabel}「${name}」(id: ${id}): ${message}`);
+    recordSheetLog(state, 'エラー', kindLabel, name, id, message);
   }
 }
 
@@ -242,6 +268,15 @@ function finishTransfer(state: TransferState): void {
   clearState();
   deleteResumeTriggers();
   logProgress(state, 'すべての処理が完了しました');
+  const s = state.stats;
+  recordSheetLog(
+    state,
+    'サマリ',
+    '-',
+    'すべての処理が完了しました',
+    '',
+    `走査 ${s.scanned} 件 / ${state.dryRun ? `譲渡対象 ${s.planned}` : `譲渡済み ${s.transferred}`} 件 / エラー ${s.errors} 件`
+  );
   if (state.strategy === 'search' && !state.dryRun) {
     console.log(
       '検索走査では譲渡により検索結果が変化するため、取りこぼしが残ることがあります。' +
@@ -263,6 +298,11 @@ function logStartBanner(state: TransferState): void {
 
 /** 進捗・結果のサマリをログに出力する */
 function logProgress(state: TransferState, headline: string): void {
+  console.log(formatProgress(state, headline));
+}
+
+/** 進捗・結果のサマリを整形する(ログ出力とシート UI のダイアログで共用) */
+function formatProgress(state: TransferState, headline: string): string {
   const s = state.stats;
   const lines = [
     `=== ${headline} ===`,
@@ -278,5 +318,5 @@ function logProgress(state: TransferState, headline: string): void {
     lines.push(`未処理のフォルダキュー: ${state.folderQueue.length} 件`);
   }
   lines.push(`開始時刻: ${state.startedAt}`);
-  console.log(lines.join('\n'));
+  return lines.join('\n');
 }

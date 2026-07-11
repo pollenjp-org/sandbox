@@ -25,13 +25,13 @@ $ curl https://mise.run | sh
 
 </details>
 
-次に、このプロジェクトの `mise.toml` を信頼(trust)して、宣言されたツール(Node.js 22)をインストールします。
+次に、このプロジェクトの `mise.toml` を信頼(trust)して、宣言されたツール(Node.js 24)をインストールします。
 
 ```bash
 $ mise trust      # このディレクトリの mise.toml を信頼する(初回のみ)
-$ mise install    # mise.toml に書かれた Node.js 22 が入る
+$ mise install    # mise.toml に書かれた Node.js 24 が入る
 $ mise exec -- node --version
-v22.23.1
+v24.18.0
 ```
 
 <details>
@@ -148,6 +148,8 @@ $ npx clasp create-script --title "drive-ownership-transfer" --rootDir dist
 ```
 
 これで Google 側に空のプロジェクトが作られ、手元には接続情報ファイル `.clasp.json` が生成されます。
+
+> 💡 スプレッドシートのメニューから操作する UI(第 8 章・推奨)を使いたい場合は、ここで `--type sheets` を付けると「スプレッドシート + それに紐付いたプロジェクト」が一度に作れます。詳細は[第 8 章](./08-spreadsheet.md)を参照してください。
 
 > 補足: clasp v3 では `create-script` が正式名で、`create` はその別名(エイリアス)です。`--type` を省略すると standalone(単体スクリプト)になります。
 

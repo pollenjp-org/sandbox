@@ -6,7 +6,7 @@ skinparam shadowing false
 actor "ユーザー" as user
 participant "main.ts\n(エントリーポイント)" as main
 participant "transfer.ts\nrunBatch()" as batch
-participant "state.ts\n(スクリプトプロパティ)" as state
+participant "state.ts\n(ユーザープロパティ)" as state
 participant "DriveApp\n(Google Drive)" as drive
 participant "時間主導トリガー" as trig
 

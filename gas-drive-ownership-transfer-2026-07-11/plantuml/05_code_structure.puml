@@ -45,8 +45,15 @@ package "src/" {
     webAppStop() / webAppCountOwned()
   }
   class "index.html" as html <<UI ページ>> {
-    ボタン操作 / 進捗表示
+    フォーム入力 / 進捗表示
     google.script.run で呼び出し
+  }
+  class "sheet.ts" as sheet <<スプレッドシート UI>> {
+    +onOpen() : カスタムメニュー追加
+    sheetSetup() / readSheetSettings()
+    sheetStartTree() / sheetStartSearch()
+    sheetShowStatus() / sheetStop()
+    recordSheetLog() / flushSheetLog()
   }
   class "appsscript.json" as manifest <<マニフェスト>> {
     timeZone / runtimeVersion
@@ -63,6 +70,9 @@ html ..> webapp : google.script.run
 webapp --> transfer : 開始 / 停止
 webapp --> state : 進捗の読み取り
 webapp --> main : 件数の概算
+sheet --> transfer : 開始 / 停止
+sheet --> state : 進捗の読み取り
+transfer ..> sheet : 台帳へ記録\n(recordSheetLog)
 state ..> types : 型を参照
 transfer ..> types : 型を参照
 manifest .. main : 実行環境を定義

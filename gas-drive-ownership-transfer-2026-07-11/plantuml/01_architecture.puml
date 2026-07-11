@@ -24,7 +24,7 @@ cloud "Google" {
   package "Apps Script プロジェクト" {
     component "スクリプト本体\n(main / transfer / state / ...)" as gas
     component "時間主導トリガー" as trigger
-    component "スクリプトプロパティ\n(進捗チェックポイント)" as props
+    component "ユーザープロパティ\n(進捗チェックポイント\n利用者ごとに独立)" as props
   }
   component "Cloud Logging\n(実行ログ)" as logging
   package "Google Drive" {

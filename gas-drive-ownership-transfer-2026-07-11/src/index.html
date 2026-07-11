@@ -25,18 +25,18 @@
       dl { display: grid; grid-template-columns: 11em 1fr; gap: 4px 8px; margin: 0; font-size: 0.9rem; }
       dt { color: #5f6368; }
       dd { margin: 0; word-break: break-all; }
-      .badge {
-        display: inline-block; padding: 2px 10px; border-radius: 999px;
-        font-size: 0.8rem; font-weight: 700; color: #fff;
+      label.field { display: block; font-size: 0.85rem; color: #3c4043; margin: 10px 0 4px; }
+      input[type='text'], input[type='email'] {
+        font: inherit; width: 100%; padding: 8px 10px;
+        border: 1px solid var(--border); border-radius: 6px;
       }
-      .badge.dry { background: var(--ok); }
-      .badge.live { background: var(--danger); }
+      .radio-row { display: flex; gap: 16px; margin-top: 4px; font-size: 0.9rem; }
       .warn {
         background: #fce8e6; border: 1px solid #f5c6c4; color: var(--danger);
-        border-radius: 8px; padding: 10px 12px; font-size: 0.85rem; margin-bottom: 12px;
+        border-radius: 8px; padding: 10px 12px; font-size: 0.85rem; margin-top: 10px;
       }
       button {
-        font: inherit; padding: 8px 14px; margin: 4px 6px 4px 0;
+        font: inherit; padding: 8px 14px; margin: 10px 6px 4px 0;
         border-radius: 6px; border: 1px solid var(--border);
         background: var(--bg-soft); cursor: pointer;
       }
@@ -49,37 +49,46 @@
       }
       #message.error { background: #fce8e6; color: var(--danger); }
       .muted { color: #5f6368; font-size: 0.8rem; }
+      .badge {
+        display: inline-block; padding: 2px 10px; border-radius: 999px;
+        font-size: 0.8rem; font-weight: 700; color: #fff;
+      }
+      .badge.dry { background: var(--ok); }
+      .badge.live { background: var(--danger); }
     </style>
   </head>
   <body>
     <h1>Google Drive 所有権一括譲渡</h1>
-    <div class="sub">自分が所有するファイル/フォルダの所有権を、設定した相手へ一括で譲渡します。</div>
-
-    <div id="live-warning" class="warn" style="display: none">
-      ⚠️ <b>本番モード(dryRun: false)です。</b>開始すると実際に所有権が譲渡されます。
-      設定を見直す場合は <code>src/config.ts</code> を編集して push し直してください。
+    <div class="sub">
+      あなた(<b id="my-email">読み込み中...</b>)が所有するファイル/フォルダの所有権を、指定した相手へ一括で譲渡します。
+      対象になるのは<b>あなた自身が所有するもの</b>だけです。
     </div>
 
     <div class="card">
-      <h2>設定(config.ts の内容)</h2>
-      <dl>
-        <dt>実行者(現在の所有者)</dt><dd id="my-email">読み込み中...</dd>
-        <dt>譲渡先</dt><dd id="new-owner">-</dd>
-        <dt>対象フォルダ ID</dt><dd id="root-folder">-</dd>
-        <dt>モード</dt><dd id="mode">-</dd>
-      </dl>
-    </div>
-
-    <div class="card">
-      <h2>操作</h2>
-      <button id="btn-count" onclick="countOwned()">所有アイテム数を確認</button>
-      <button id="btn-tree" class="primary" onclick="startRun('tree')">ツリー走査で開始</button>
-      <button id="btn-search" onclick="startRun('search')">検索走査で開始</button>
-      <button id="btn-refresh" onclick="refreshStatus(true)">進捗を更新</button>
-      <button id="btn-stop" class="danger" onclick="stopRun()">停止(リセット)</button>
+      <h2>実行設定(あなた専用)</h2>
+      <label class="field" for="in-owner">譲渡先メールアドレス(必須・同じドメインのユーザー)</label>
+      <input id="in-owner" type="email" placeholder="successor@example.com" />
+      <label class="field" for="in-root">対象フォルダ ID(空欄 = マイドライブ全体)</label>
+      <input id="in-root" type="text" placeholder="https://drive.google.com/drive/folders/【この部分】" />
+      <label class="field">モード</label>
+      <div class="radio-row">
+        <label><input type="radio" name="mode" value="dry" checked onchange="onModeChange()" /> DRY RUN(予行演習)</label>
+        <label><input type="radio" name="mode" value="live" onchange="onModeChange()" /> 本番(実際に譲渡する)</label>
+      </div>
+      <div id="live-warning" class="warn" style="display: none">
+        ⚠️ <b>本番モードです。</b>開始すると実際に所有権が譲渡されます。譲渡のやり直しは
+        新オーナー側の操作が必要になるため、必ず先に DRY RUN で対象を確認してください。
+      </div>
+      <div>
+        <button id="btn-count" onclick="countOwned()">所有アイテム数を確認</button>
+        <button id="btn-tree" class="primary" onclick="startRun('tree')">ツリー走査で開始</button>
+        <button id="btn-search" onclick="startRun('search')">検索走査で開始</button>
+        <button id="btn-refresh" onclick="refreshStatus(true)">進捗を更新</button>
+        <button id="btn-stop" class="danger" onclick="stopRun()">停止(リセット)</button>
+      </div>
       <div class="muted">
         開始後はこのページを閉じても、処理はサーバー側のトリガーで自動継続します。
-        詳細ログは Apps Script エディタの「実行数」で確認できます。
+        詳細ログは Apps Script エディタの「実行数」で確認できます(進捗はあなたの分だけが表示されます)。
       </div>
     </div>
 
@@ -109,27 +118,31 @@
         showMessage('エラー: ' + (error && error.message ? error.message : error), true);
       }
 
+      function isLiveMode() {
+        return document.querySelector('input[name="mode"]:checked').value === 'live';
+      }
+
+      function onModeChange() {
+        document.getElementById('live-warning').style.display = isLiveMode() ? 'block' : 'none';
+      }
+
       function render(status) {
         document.getElementById('my-email').textContent = status.myEmail;
-        document.getElementById('new-owner').textContent = status.newOwnerEmail;
-        document.getElementById('root-folder').textContent =
-          status.rootFolderId || '(マイドライブのルート)';
-        const mode = document.getElementById('mode');
-        mode.innerHTML = status.dryRun
-          ? '<span class="badge dry">DRY RUN(予行演習)</span>'
-          : '<span class="badge live">本番モード</span>';
-        document.getElementById('live-warning').style.display = status.dryRun ? 'none' : 'block';
-
         const progress = document.getElementById('progress');
         if (!status.running || !status.summary) {
           progress.innerHTML = '<span class="muted">実行中の処理はありません。</span>';
           return;
         }
         const s = status.summary;
+        // 実行中は、その実行の入力値をフォームに反映しておく
+        if (!document.getElementById('in-owner').value) {
+          document.getElementById('in-owner').value = s.newOwnerEmail;
+        }
         progress.innerHTML =
           '<dl>' +
-          '<dt>モード</dt><dd>' + (s.strategy === 'tree' ? 'ツリー走査' : '検索走査') +
-          (s.dryRun ? '(DRY RUN)' : '(本番)') + '</dd>' +
+          '<dt>モード</dt><dd>' + (s.strategy === 'tree' ? 'ツリー走査' : '検索走査') + ' ' +
+          (s.dryRun ? '<span class="badge dry">DRY RUN</span>' : '<span class="badge live">本番</span>') + '</dd>' +
+          '<dt>譲渡先</dt><dd>' + s.newOwnerEmail + '</dd>' +
           '<dt>バッチ回数</dt><dd>' + s.batchCount + '</dd>' +
           '<dt>走査済み</dt><dd>' + s.scanned + ' 件</dd>' +
           (s.dryRun
@@ -171,10 +184,17 @@
       }
 
       function startRun(strategy) {
+        const newOwnerEmail = document.getElementById('in-owner').value.trim();
+        const rootFolderId = document.getElementById('in-root').value.trim();
+        if (!newOwnerEmail || newOwnerEmail.indexOf('@') === -1) {
+          showMessage('譲渡先メールアドレスを入力してください。', true);
+          return;
+        }
+        const live = isLiveMode();
         const label = strategy === 'tree' ? 'ツリー走査' : '検索走査';
-        if (!confirm(label + 'で一括譲渡を開始します。よろしいですか?')) return;
-        const isDry = document.querySelector('.badge.dry') !== null;
-        if (!isDry && !confirm('⚠️ 本番モードです。実際に所有権が譲渡され、元に戻すのは大変です。本当に開始しますか?')) {
+        const modeLabel = live ? '本番' : 'DRY RUN';
+        if (!confirm(label + '(' + modeLabel + ')で開始します。\n譲渡先: ' + newOwnerEmail + '\nよろしいですか?')) return;
+        if (live && !confirm('⚠️ 本番モードです。\nあなたが所有するファイルの所有権が実際に ' + newOwnerEmail + ' へ譲渡され、元に戻すのは大変です。\n本当に開始しますか?')) {
           return;
         }
         setBusy(true);
@@ -189,12 +209,12 @@
             scheduleAutoRefresh(status);
           })
           .withFailureHandler(onFailure);
-        if (strategy === 'tree') call.webAppStartTree();
-        else call.webAppStartSearch();
+        if (strategy === 'tree') call.webAppStartTree(newOwnerEmail, rootFolderId, !live);
+        else call.webAppStartSearch(newOwnerEmail, rootFolderId, !live);
       }
 
       function stopRun() {
-        if (!confirm('処理を中止して進捗をリセットします。よろしいですか?\n(すでに譲渡した分は戻りません)')) return;
+        if (!confirm('あなたの処理を中止して進捗をリセットします。よろしいですか?\n(すでに譲渡した分は戻りません)')) return;
         setBusy(true);
         google.script.run
           .withSuccessHandler((status) => {

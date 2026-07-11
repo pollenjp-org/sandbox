@@ -19,6 +19,7 @@ Google Drive 内で自分が所有するファイル/フォルダの所有権を
 | [第 5 章](./docs/textbook/05-operations.md) | 実行手順・トラブルシューティング |
 | [付録](./docs/textbook/06-appendix.md) | 個人アカウント対応、図の再生成、参考リンク |
 | [第 7 章](./docs/textbook/07-webapp.md) | (オプション)Web アプリ UI と共有範囲の設定 |
+| [第 8 章](./docs/textbook/08-spreadsheet.md) | (推奨 UI)スプレッドシート紐付け。メニュー実行 + 台帳シート |
 
 ## クイックスタート(経験者向け)
 
@@ -29,10 +30,10 @@ mise trust && mise install && mise run setup
 # 2. Apps Script API を有効化(初回のみ)
 #    https://script.google.com/home/usersettings
 
-# 3. ログインとプロジェクト作成
+# 3. ログインとプロジェクト作成(スプレッドシート UI を使うなら --type sheets)
 mise run login
 mise run build
-npx clasp create-script --title "drive-ownership-transfer" --rootDir dist
+npx clasp create-script --type sheets --title "Drive 所有権一括譲渡" --rootDir dist
 
 # 4. 設定(src/config.ts の newOwnerEmail 等)を編集して反映
 mise run push
@@ -44,9 +45,13 @@ mise run open
 ## 主な機能
 
 - **2 つの走査戦略**: 指定フォルダ配下の再帰走査(`startTransfer`)と、全所有物の検索走査(`startTransferAllOwned`)
-- **6 分制限対策**: バッチ処理 + スクリプトプロパティへのチェックポイント保存 + 時間主導トリガーによる自動再開
-- **安全装置**: DRY RUN 既定、譲渡先の検証、所有者チェック、LockService による多重実行防止、エラー時も継続して完走
-- **Web アプリ UI(オプション)**: ブラウザのボタンで開始・進捗確認・停止。既定は「自分として実行 × 自分のみアクセス可」の最も安全な公開設定
+- **6 分制限対策**: バッチ処理 + ユーザープロパティへのチェックポイント保存 + 時間主導トリガーによる自動再開
+- **安全装置**: DRY RUN 既定、譲渡先の検証、所有者チェック、LockService(ユーザーロック)による多重実行防止、エラー時も継続して完走
+- **3 つの実行インターフェース**(中核ロジックは共通。いずれも実行者本人が所有するファイルだけが対象)
+  - **スプレッドシート UI(推奨)**: カスタムメニューから実行。設定はセル、結果は「譲渡ログ」シート(台帳)に記録。配布はシート共有だけ
+  - **Web アプリ UI**: ブラウザのフォームで譲渡先・対象フォルダ・モードを入力するセルフサービス型(アクセスしているユーザーとして実行)
+  - **Apps Script エディタ**: 関数を直接実行(開発者向け)
+- **利用者ごとの分離**: 進捗(ユーザープロパティ)・排他ロック・再開トリガーがすべて利用者単位。複数人が同時に使っても干渉しない
 
 ## ディレクトリ構成
 

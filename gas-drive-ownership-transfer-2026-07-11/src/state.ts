@@ -1,7 +1,11 @@
 /**
- * 実行状態(TransferState)をスクリプトプロパティへ保存・復元する。
+ * 実行状態(TransferState)をユーザープロパティへ保存・復元する。
  *
- * スクリプトプロパティには「1 つの値につき 9KB まで」という上限がある。
+ * 保存先に「ユーザープロパティ」(スクリプト × 利用者ごとに独立した領域)を
+ * 使うのがポイント。Web アプリを複数人で使っても、各利用者の進捗は互いに
+ * 見えず、干渉しない。
+ *
+ * また、プロパティには「1 つの値につき 9KB まで」という上限がある。
  * フォルダキューが長くなると 9KB を超えることがあるため、JSON 文字列を
  * 一定の長さで分割(チャンク化)して複数のプロパティに保存する。
  */
@@ -13,9 +17,14 @@ const STATE_CHUNK_KEY_PREFIX = 'TRANSFER_STATE_CHUNK_';
 /** 1 チャンクの最大文字数(9KB 制限に対する余裕を持たせた値) */
 const STATE_CHUNK_SIZE = 8000;
 
-/** 状態を JSON にしてチャンク分割し、スクリプトプロパティへ保存する */
+/** 実行状態の保存先(現在の利用者専用の領域) */
+function stateProps(): GoogleAppsScript.Properties.Properties {
+  return PropertiesService.getUserProperties();
+}
+
+/** 状態を JSON にしてチャンク分割し、ユーザープロパティへ保存する */
 function saveState(state: TransferState): void {
-  const props = PropertiesService.getScriptProperties();
+  const props = stateProps();
   const json = JSON.stringify(state);
   const chunks: string[] = [];
   for (let i = 0; i < json.length; i += STATE_CHUNK_SIZE) {
@@ -31,7 +40,7 @@ function saveState(state: TransferState): void {
 
 /** 保存された状態を復元する。保存がなければ null を返す */
 function loadState(): TransferState | null {
-  const props = PropertiesService.getScriptProperties();
+  const props = stateProps();
   const countText = props.getProperty(STATE_CHUNK_COUNT_KEY);
   if (countText === null) {
     return null;
@@ -52,9 +61,9 @@ function loadState(): TransferState | null {
   return JSON.parse(json) as TransferState;
 }
 
-/** 保存された状態をすべて削除する */
+/** 保存された状態をすべて削除する(現在の利用者の分のみ) */
 function clearState(): void {
-  const props = PropertiesService.getScriptProperties();
+  const props = stateProps();
   const allKeys = Object.keys(props.getProperties());
   for (const key of allKeys) {
     if (key === STATE_CHUNK_COUNT_KEY || key.indexOf(STATE_CHUNK_KEY_PREFIX) === 0) {

@@ -1,0 +1,35 @@
+@startuml 03_resume_sequence
+title 中断と自動再開のシーケンス
+skinparam defaultFontName "Noto Sans CJK JP"
+skinparam shadowing false
+
+actor "ユーザー" as user
+participant "main.ts\n(エントリーポイント)" as main
+participant "transfer.ts\nrunBatch()" as batch
+participant "state.ts\n(スクリプトプロパティ)" as state
+participant "DriveApp\n(Google Drive)" as drive
+participant "時間主導トリガー" as trig
+
+user -> main : startTransfer() を実行\n(Apps Script エディタ)
+main -> state : 未完了の状態が残っていないか確認
+main -> batch : バッチ 1 回目を開始(制限時間 4.5 分)
+loop ファイル / フォルダを順に処理
+  batch -> drive : 次のアイテムを取得
+  batch -> drive : 自分の所有物なら setOwner()
+end
+note over batch : 制限時間が近づいた
+batch -> state : 進捗(キュー・継続トークン)を保存
+batch -> trig : 60 秒後の再開トリガーを作成
+batch --> user : いったん終了(ログにサマリ出力)
+...約 60 秒後...
+trig -> main : resumeTransfer() を自動起動
+main -> trig : 発火済みトリガーを掃除
+main -> state : 進捗を復元
+main -> batch : バッチ 2 回目を開始
+loop 残りを処理
+  batch -> drive : 走査・譲渡のつづき
+end
+batch -> state : 完了 → 状態をクリア
+batch -> trig : 再開トリガーを削除
+batch --> user : 完了サマリをログ出力
+@enduml

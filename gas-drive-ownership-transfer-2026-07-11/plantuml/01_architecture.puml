@@ -1,0 +1,42 @@
+@startuml 01_architecture
+title 全体アーキテクチャ
+skinparam defaultFontName "Noto Sans CJK JP"
+skinparam shadowing false
+skinparam componentStyle rectangle
+
+actor "開発者\n(あなた)" as dev
+
+package "ローカル開発環境" {
+  component "mise\n(ツールバージョン管理)" as mise
+  component "Node.js / npm" as node
+  component "TypeScript ソース\nsrc/*.ts" as src
+  component "tsc\n(コンパイラ)" as tsc
+  component "dist/\n(GAS 用 JS + マニフェスト)" as dist
+  component "clasp\n(デプロイ用 CLI)" as clasp
+
+  mise ..> node : インストール
+  src --> tsc
+  tsc --> dist
+  dist --> clasp
+}
+
+cloud "Google" {
+  package "Apps Script プロジェクト" {
+    component "スクリプト本体\n(main / transfer / state / ...)" as gas
+    component "時間主導トリガー" as trigger
+    component "スクリプトプロパティ\n(進捗チェックポイント)" as props
+  }
+  component "Cloud Logging\n(実行ログ)" as logging
+  package "Google Drive" {
+    component "マイドライブの\nファイル / フォルダ" as drive
+  }
+}
+
+dev --> src : 編集
+dev --> clasp : mise run push
+clasp --> gas : clasp push\n(HTTPS)
+gas --> drive : DriveApp で走査し\n所有権を譲渡
+gas <--> props : 進捗の保存 / 復元
+trigger --> gas : resumeTransfer() を\n自動起動
+gas --> logging : console.log
+@enduml

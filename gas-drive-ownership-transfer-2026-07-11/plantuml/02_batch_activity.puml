@@ -1,0 +1,30 @@
+@startuml 02_batch_activity
+title 1 バッチの処理フロー(ツリー走査)
+skinparam defaultFontName "Noto Sans CJK JP"
+skinparam shadowing false
+
+start
+:設定を検証し、状態を初期化\n(キュー = [ルートフォルダ]);
+while (キューにフォルダが残っている?) is (はい)
+  :キューの先頭からフォルダを 1 つ取り出す;
+  while (フォルダ直下に未処理のファイルがある?) is (はい)
+    if (制限時間 (4.5 分) を超えた?) then (はい)
+      :継続トークンと状態を\nスクリプトプロパティへ保存;
+      :約 60 秒後の再開トリガーを予約;
+      stop
+    endif
+    if (自分が所有している?) then (はい)
+      if (DRY RUN?) then (はい)
+        :ログに「譲渡対象」と\n記録するだけ;
+      else (いいえ)
+        :setOwner() で所有権を譲渡;
+      endif
+    else (いいえ)
+      :スキップ;
+    endif
+  endwhile (いいえ)
+  :サブフォルダを列挙し、\n(設定に応じて所有権を譲渡して)\nキューの末尾へ追加;
+endwhile (いいえ)
+:完了処理\n(状態クリア・トリガー削除・サマリ出力);
+stop
+@enduml

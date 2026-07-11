@@ -1,0 +1,55 @@
+@startuml 05_code_structure
+title ソースコードの構成と依存関係
+skinparam defaultFontName "Noto Sans CJK JP"
+skinparam shadowing false
+
+package "src/" {
+  class "main.ts" as main <<エントリーポイント>> {
+    +startTransfer()
+    +startTransferAllOwned()
+    +resumeTransfer()
+    +stopTransfer()
+    +showStatus()
+    +countOwnedFiles()
+  }
+  class "transfer.ts" as transfer <<中核ロジック>> {
+    startTransferWithStrategy()
+    runBatch()
+    runTreeBatch()
+    runSearchBatch()
+    transferOwnershipIfOwned()
+    finishTransfer()
+    logProgress()
+  }
+  class "state.ts" as state <<状態の永続化>> {
+    saveState()
+    loadState()
+    clearState()
+  }
+  class "triggers.ts" as triggers <<トリガー管理>> {
+    scheduleResume()
+    deleteResumeTriggers()
+  }
+  class "config.ts" as config <<設定>> {
+    CONFIG: TransferConfig
+    OWNED_ITEMS_QUERY
+  }
+  class "types.d.ts" as types <<型定義(コンパイル時のみ)>> {
+    TransferConfig / TransferState
+    TransferStats / FolderProgress
+  }
+  class "appsscript.json" as manifest <<マニフェスト>> {
+    timeZone / runtimeVersion
+    oauthScopes
+  }
+}
+
+main --> transfer : 呼び出し
+transfer --> state : 保存 / 復元
+transfer --> triggers : 予約 / 削除
+transfer --> config : 設定参照
+main --> config : 設定参照
+state ..> types : 型を参照
+transfer ..> types : 型を参照
+manifest .. main : 実行環境を定義
+@enduml

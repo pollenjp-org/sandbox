@@ -6,7 +6,7 @@ Vite + React で作る、画像・PDF をブラウザ内だけで圧縮するツ
 
 ## 特徴
 
-- **完全クライアントサイド**: ファイルはサーバーに送信されず、すべてブラウザ内で処理される。
+- **完全クライアントサイド**: ファイルはサーバーに送信されず、すべてブラウザ内で処理される。ページ読み込み後は外部への通信を一切行わない（CDN・解析・フォント等も含めゼロ）ため、オフラインでも動作する。画像圧縮に使う Web Worker のライブラリも外部 CDN ではなく同一オリジンにバンドルしている。
 - **画像圧縮** (PNG / JPEG / WebP / GIF / BMP / AVIF など): 画質・最大辺・出力形式を指定して再エンコード。[browser-image-compression](https://github.com/Donaldcwl/browser-image-compression) を使用。
 - **PDF 圧縮** (画像入り / スキャン PDF): [pdf.js](https://github.com/mozilla/pdf.js) で各ページを画像化し、JPEG で再エンコードして [pdf-lib](https://github.com/Hopding/pdf-lib) で PDF を再構成する。スキャン画像主体の PDF に特に有効。
 - **一括処理**: 複数ファイルをまとめてドロップ / 貼り付け (Ctrl・Cmd + V) でき、ZIP でまとめて保存できる。

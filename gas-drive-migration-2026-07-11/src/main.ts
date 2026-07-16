@@ -121,6 +121,14 @@ const SETTING_DEFS: SettingDef[] = [
     default: false,
   },
   {
+    key: 'LEAVE_BREADCRUMB',
+    label: '移動元に案内ファイル(.txt)を残す',
+    description:
+      '各フォルダの中身を移動したあと、移動元フォルダに「このフォルダの中身は移動しました.txt」を作り、移行先フォルダのリンクを記載する。フォルダ自体は移動できないため、旧フォルダを見た人に移行先を知らせる目印になる。',
+    type: 'boolean',
+    default: true,
+  },
+  {
     key: 'NOTIFY_EMAIL',
     label: '完了通知メール（空欄可）',
     description: '完了・エラー停止時に通知するメールアドレス。空欄なら通知しない。',
@@ -165,6 +173,7 @@ interface Config {
   CREATE_TOP_FOLDER: boolean;
   COPY_FALLBACK: boolean;
   TRASH_ORIGINAL_AFTER_COPY: boolean;
+  LEAVE_BREADCRUMB: boolean;
   NOTIFY_EMAIL: string;
   TIME_LIMIT_MS: number;
   RESUME_DELAY_MS: number;
@@ -196,6 +205,13 @@ const RESUME_HANDLER = 'resumeMigration';
 
 /** DRY_RUN 中に「作ったことにした」フォルダへ振る仮 ID の接頭辞 */
 const DRY_RUN_ID_PREFIX = 'dryrun:';
+
+/**
+ * 移動元フォルダに残す案内ファイルの名前。
+ * この名前のファイルは「移行ツールが作った目印」とみなし、移行先へは移動しない
+ * (再実行でも移動されない)。
+ */
+const BREADCRUMB_NAME = 'このフォルダの中身は移動しました.txt';
 
 /** 進捗シートへの書き込み間隔 (ミリ秒)。頻繁すぎる書き込みを抑える */
 const STATUS_WRITE_INTERVAL_MS = 10000;
@@ -617,6 +633,8 @@ function processFolder_(task: FolderTask, state: MigrationState, deadline: numbe
   const files = listChildren_(task.src, 'files');
   for (const file of files) {
     if (Date.now() > deadline) return false;
+    // 自分で残した案内ファイルは移行先へ移動しない (目印として移動元に残す)
+    if (file.name === BREADCRUMB_NAME) continue;
     moveOneFile_(file, task, state);
   }
 
@@ -628,6 +646,9 @@ function processFolder_(task: FolderTask, state: MigrationState, deadline: numbe
     const dstId = ensureFolder_(sub.name, task.dst, state, childPath);
     newTasks.push({ src: sub.id, dst: dstId, path: childPath });
   }
+
+  // このフォルダの中身を移し終えたので、移動元に移行先への案内ファイルを残す
+  leaveBreadcrumb_(task, state);
 
   for (const t of newTasks) state.queue.push(t);
   state.stats.foldersVisited += 1;
@@ -823,6 +844,73 @@ function moveOneFile_(file: ChildItem, task: FolderTask, state: MigrationState):
   }
 }
 
+/**
+ * 移動元フォルダに「このフォルダの中身は移動しました.txt」を残す。
+ * 中身に移行先フォルダへのリンクを記載する。フォルダ自体はドメイン間で移動
+ * できないため、旧フォルダを開いた人に移行先を知らせる目印になる。
+ * 冪等: 既存の案内ファイルがあれば内容を更新し、なければ新規作成する。
+ */
+function leaveBreadcrumb_(task: FolderTask, state: MigrationState): void {
+  if (!cfg_().LEAVE_BREADCRUMB) return;
+
+  // 移行先がまだ実体を持たない (DRY_RUN の仮 ID) 場合はリンクを確定できない
+  const isDryDst = task.dst.indexOf(DRY_RUN_ID_PREFIX) === 0;
+  const destLink = isDryDst
+    ? '(DRY_RUN のため未確定)'
+    : `https://drive.google.com/drive/folders/${task.dst}`;
+
+  const content = [
+    'このフォルダの中身は別の場所へ移動しました。',
+    '',
+    '▼ 移行先フォルダ',
+    destLink,
+    '',
+    `移行日時: ${formatNow_()}`,
+    '',
+    '※このファイルは移行ツールが自動生成した案内です。',
+    '※ドメインをまたぐ制約でフォルダ自体は移動できないため、',
+    '  中身のファイルのみを移行先へ移動し、この案内を移動元に残しています。',
+  ].join('\n');
+
+  if (state.dryRun) {
+    Logger.log(`  [DRY_RUN] 案内ファイル作成予定: ${task.path}/${BREADCRUMB_NAME}`);
+    return;
+  }
+
+  try {
+    const q =
+      `'${task.src}' in parents and trashed = false and name = '${escapeForQuery_(BREADCRUMB_NAME)}'`;
+    const found: DriveV3.FileList = withRetry_('案内ファイルの検索', () =>
+      Drive.Files.list({
+        q: q,
+        pageSize: 1,
+        fields: 'files(id)',
+        includeItemsFromAllDrives: true,
+        supportsAllDrives: true,
+      })
+    );
+    const blob = Utilities.newBlob(content, 'text/plain', BREADCRUMB_NAME);
+    const existing = (found.files || [])[0];
+    if (existing && existing.id) {
+      withRetry_('案内ファイルの更新', () =>
+        Drive.Files.update({}, existing.id as string, blob, { supportsAllDrives: true })
+      );
+    } else {
+      withRetry_('案内ファイルの作成', () =>
+        Drive.Files.create(
+          { name: BREADCRUMB_NAME, mimeType: 'text/plain', parents: [task.src] },
+          blob,
+          { supportsAllDrives: true, fields: 'id' }
+        )
+      );
+    }
+    Logger.log(`  📝 案内ファイルを配置: ${task.path}/${BREADCRUMB_NAME}`);
+  } catch (e) {
+    // 案内ファイルは補助的なものなので、失敗しても移行本体は止めない
+    Logger.log(`  ⚠ 案内ファイルの配置に失敗 (無視して続行): ${task.path} — ${errorMessage_(e)}`);
+  }
+}
+
 /** 空フォルダを深い階層から順にゴミ箱へ入れる (後片付け)。 */
 function trashIfEmptyRecursive_(folderId: string, path: string, ownedByMe: boolean): boolean {
   const children = listChildren_(folderId, 'all');
@@ -833,6 +921,10 @@ function trashIfEmptyRecursive_(folderId: string, path: string, ownedByMe: boole
       if (!trashIfEmptyRecursive_(child.id, `${path}/${child.name}`, child.ownedByMe)) {
         allCleared = false;
       }
+    } else if (child.name === BREADCRUMB_NAME) {
+      // 自分で残した案内ファイルは「空」の判定では無視する
+      // (フォルダごとゴミ箱に入れる際に一緒に片付く)
+      continue;
     } else {
       Logger.log(`  ⏭ ファイルが残っているため残置: ${path}/${child.name}`);
       allCleared = false;
@@ -1345,6 +1437,11 @@ function isTransientError_(e: unknown): boolean {
 function errorMessage_(e: unknown): string {
   if (e instanceof Error) return e.message;
   return String(e);
+}
+
+/** 現在時刻をスクリプトのタイムゾーンで 'yyyy-MM-dd HH:mm' に整形する。 */
+function formatNow_(): string {
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
 }
 
 function escapeForQuery_(value: string): string {

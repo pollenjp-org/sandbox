@@ -343,6 +343,7 @@ MigrationState ──JSON.stringify──▶ "{...長い文字列...}"
 | `listChildren_(parentId, filter)` | 子アイテム全件取得 (ページネーション対応) |
 | `ensureFolder_(name, parent, ...)` | find-or-create でフォルダを用意 |
 | `moveOneFile_(file, task, state)` | 移動 → 失敗ならコピー救済 → それも失敗なら記録 |
+| `leaveBreadcrumb_(task, state)` | 移動元フォルダに移行先リンク入りの案内 .txt を残す (冪等)。この名前のファイルは移動対象から除外 |
 | `saveState_ / loadState_ / clearStateStorage_` | 状態のチャンク保存・復元・削除 |
 | `withRetry_(label, fn)` | 指数バックオフ付きリトライ |
 | `suspendAndScheduleResume_ / scheduleResume_ / deleteResumeTriggers_` | 中断とトリガー管理 |

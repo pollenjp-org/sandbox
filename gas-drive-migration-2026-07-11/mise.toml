@@ -1,32 +1,42 @@
 # このプロジェクトで使う CLI ツールとタスクの定義 (https://mise.jdx.dev/)
 # 使い方:
 #   mise trust        # 初回のみ: この設定ファイルを信頼する
-#   mise install      # [tools] に書かれたツールを導入
+#   mise install      # [tools] に書かれたツール (Node.js / pnpm) を導入
 #   mise run <task>   # タスク実行 (例: mise run build)
 
 [tools]
 node = "22"
+pnpm = "10"
 
 [tasks.setup]
-description = "npm 依存関係をインストール"
-run = "npm install"
+description = "依存パッケージをインストール (pnpm install)"
+run = "pnpm install"
 
 [tasks.typecheck]
 description = "TypeScript の型チェックのみ実行 (ファイル出力なし)"
-run = "npm run typecheck"
+run = "pnpm run typecheck"
 
 [tasks.build]
-description = "dist/ に GAS 用 JS をビルド (コピペ or clasp push 用)"
-run = "npm run build"
+description = "dist/ に GAS 用 JS をビルド (clasp push / コピペ用)"
+run = "pnpm run build"
 
-[tasks."clasp:login"]
+[tasks.login]
 description = "clasp で Google アカウントにログイン (ブラウザが開く)"
-run = "npx clasp login"
+run = "pnpm exec clasp login"
 
-[tasks."clasp:push"]
-description = "dist/ の内容を Apps Script プロジェクトへ反映"
+[tasks."create-sheet"]
+description = "新しいスプレッドシートとバインドプロジェクトを作成 (clasp create-script)"
 depends = ["build"]
-run = "npx clasp push"
+run = 'pnpm exec clasp create-script --type sheets --title "ドライブ移行ツール" --rootDir dist'
+
+[tasks.push]
+description = "dist/ の内容を Apps Script プロジェクトへ反映 (ビルド → clasp push)"
+depends = ["build"]
+run = "pnpm exec clasp push"
+
+[tasks.open]
+description = "Apps Script エディタをブラウザで開く (clasp open-script)"
+run = "pnpm exec clasp open-script"
 
 [tasks."docs:diagrams"]
 description = "教科書用の図 (plantuml/out/*.svg, drawio/out/*.svg) を再生成"

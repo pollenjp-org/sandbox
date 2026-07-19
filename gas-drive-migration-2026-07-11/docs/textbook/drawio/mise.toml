@@ -10,8 +10,11 @@
 #       ※本 textbook の .drawio は mxgraph 互換の図形だけで描いているため(1)(2)で同じ絵になる
 #
 # 依存 (フォールバック時): node(ルート mise.toml で管理) + playwright + mxgraph + Chromium。
-#   このリポジトリのサンドボックスでは Chromium は導入済み。ローカルPCで動かす場合は
-#   初回のみ `npx playwright install chromium` が必要なことがある。
+#   これらは普段の開発には不要なので package.json には入れていない。図を「再生成」
+#   したいときだけ次で導入する:
+#     pnpm add -D playwright mxgraph && pnpm exec playwright install chromium
+#   (このリポジトリのサンドボックスでは Chromium は導入済み)
+#   生成済み SVG は out/ にコミットしてあるため、通常は再生成不要。
 
 [tasks."drawio:generate"]
 description = "Render *.drawio to out/*.svg (white background)"
@@ -27,7 +30,7 @@ mkdir -p out
 if command -v drawio >/dev/null 2>&1; then
   for f in *.drawio; do
     [[ -e "$f" ]] || continue
-    # -b 10 で余白、背景は既定で白。--no-sandbox は CI/コンテナ向け
+    # -b 10 で余白、背景は既定で白。xvfb はヘッドレス環境向け
     xvfb-run -a drawio --export --format svg --border 10 \
       --output "out/${f%.drawio}.svg" "$f"
   done
@@ -35,16 +38,17 @@ if command -v drawio >/dev/null 2>&1; then
   exit 0
 fi
 
-# (2) フォールバック: Chromium + mxgraph
-echo "drawio-desktop が見つからないため Chromium+mxgraph でレンダリングします"
-# 必要 npm パッケージが無ければ一時的に導入 (package.json は汚さない)
-if ! node -e "require('playwright');require('mxgraph')" >/dev/null 2>&1; then
-  echo "playwright / mxgraph を一時インストールします..."
-  ( cd ../../.. && npm install --no-save playwright mxgraph )
+# (2) フォールバック: Chromium + mxgraph (render.mjs)
+if node -e "require('playwright');require('mxgraph')" >/dev/null 2>&1; then
+  for f in *.drawio; do
+    [[ -e "$f" ]] || continue
+    node render.mjs "$f" "out/${f%.drawio}.svg"
+  done
+  echo "drawio SVGs generated in out/ (via Chromium+mxgraph)"
+  exit 0
 fi
-for f in *.drawio; do
-  [[ -e "$f" ]] || continue
-  node render.mjs "$f" "out/${f%.drawio}.svg"
-done
-echo "drawio SVGs generated in out/ (via Chromium+mxgraph)"
+
+# どちらも無い: 生成済み SVG を保持したままスキップ (再生成したい場合の導入方法を案内)
+echo "⚠ drawio-desktop も playwright/mxgraph も見つかりません。out/ の既存 SVG を維持してスキップします。"
+echo "  再生成するには: pnpm add -D playwright mxgraph && pnpm exec playwright install chromium"
 '''

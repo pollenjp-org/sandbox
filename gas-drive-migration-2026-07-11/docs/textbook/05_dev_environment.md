@@ -9,8 +9,10 @@
 ```text
 gas-drive-migration-2026-07-11/
 ├── README.md                    # プロジェクト概要とクイックスタート
-├── mise.toml                    # ツール (node) とタスク定義
-├── package.json                 # npm 依存 (typescript / clasp / 型定義)
+├── mise.toml                    # ツール (node / pnpm) とタスク定義
+├── package.json                 # 依存 (typescript / clasp / 型定義)
+├── pnpm-workspace.yaml          # pnpm 設定 (minimumReleaseAge など)
+├── pnpm-lock.yaml               # 依存のロックファイル
 ├── tsconfig.json                # TypeScript の設定 (GAS 向け)
 ├── .clasp.json.example          # clasp 設定の雛形 (コピーして .clasp.json に)
 ├── .claude/
@@ -39,8 +41,8 @@ gas-drive-migration-2026-07-11/
 
 ## 5.2 mise — ツールバージョンとタスクの管理
 
-このリポジトリでは、外部 CLI ツール (Node.js や Java) のバージョン固定と
-タスクランナーに [mise](https://mise.jdx.dev/) を使う。
+このリポジトリでは、外部 CLI ツール (Node.js・pnpm、図生成用の Java) の
+バージョン固定とタスクランナーに [mise](https://mise.jdx.dev/) を使う。
 
 <details>
 <summary>📖 用語解説: mise (ミーズ)</summary>
@@ -60,24 +62,31 @@ curl https://mise.run | sh
 # このプロジェクトの設定を信頼する (初回のみ・セキュリティ機構)
 cd gas-drive-migration-2026-07-11
 mise trust
-cd plantuml && mise trust && cd ..
+cd docs/textbook/plantuml && mise trust && cd -
+cd docs/textbook/drawio   && mise trust && cd -
 
-# ツールを導入してタスクを実行
+# ツール (Node.js + pnpm) を導入してタスクを実行
 mise install
-mise run setup        # npm install
+mise run setup        # pnpm install
 ```
 
 ### タスク一覧
 
 | コマンド | 内容 |
 | --- | --- |
-| `mise run setup` | npm 依存のインストール |
+| `mise run setup` | 依存のインストール (`pnpm install`) |
 | `mise run typecheck` | 型チェックのみ |
 | `mise run build` | `dist/` へビルド (tsc + マニフェストコピー) |
-| `mise run clasp:login` | clasp の Google ログイン |
-| `mise run clasp:push` | ビルドして GAS プロジェクトへ反映 |
-| `mise run docs:diagrams` | 教科書の図 (SVG) を再生成 |
+| `mise run login` | clasp の Google ログイン (`pnpm exec clasp login`) |
+| `mise run create-sheet` | シート+バインドプロジェクトを新規作成 (`clasp create-script --type sheets`) |
+| `mise run push` | ビルドして GAS プロジェクトへ反映 (`pnpm exec clasp push`) |
+| `mise run open` | Apps Script エディタを開く (`pnpm exec clasp open-script`) |
+| `mise run docs:diagrams` | 教科書の図 (SVG) を再生成 (plantuml + drawio) |
 | (plantuml/ 内) `mise run plantuml:generate svg,png` | 図を任意フォーマットで生成 |
+
+> セットアップから初回デプロイまでの詳しい手順は [第3章](./03_setup_guide.md) を参照。
+> 本プロジェクトはパッケージマネージャに **pnpm** を採用し、`pnpm-workspace.yaml` の
+> `minimumReleaseAge` でサプライチェーン対策を入れている ([第3章 3.4](./03_setup_guide.md#34-依存パッケージをインストールする))。
 
 ### ネットワーク制限環境での Tips (実体験に基づく)
 
@@ -157,32 +166,30 @@ Google 公式の GAS 用コマンドラインツール (Command Line Apps Script
 
 </details>
 
-初回セットアップ:
+初回セットアップの全手順は [第3章](./03_setup_guide.md) にまとめてある。要点だけ再掲すると:
 
 ```bash
-# 1. Google アカウントでログイン (ブラウザが開く)
-#    ※移行スクリプトを動かす「移行元アカウント」でログインすること
-mise run clasp:login
+# 1. Apps Script API を有効化 (初回のみ)
+#    https://script.google.com/home/usersettings を開き ON にする
+mise run login          # clasp で移行元アカウントにログイン
 
-# 2. GAS 側で「Apps Script API」を有効化
-#    https://script.google.com/home/usersettings を開き ON にする (初回のみ)
+# 2A. シートごと新規作成する (おすすめ) — .clasp.json も自動生成される
+mise run create-sheet   # clasp create-script --type sheets --title "ドライブ移行ツール" --rootDir dist
 
-# 3. 既に作った GAS プロジェクトと紐付ける
-cp .clasp.json.example .clasp.json
-#    スプレッドシートの「拡張機能 → Apps Script」で開いたエディタの
-#    「プロジェクトの設定」→「スクリプト ID」をコピーして .clasp.json の scriptId に貼る
+# 2B. あるいは既存シートのバインドプロジェクトに紐付ける
+#     cp .clasp.json.example .clasp.json して scriptId を書き込む
 
-# 4. ビルドして反映
-mise run clasp:push
+# 3. ビルドして反映
+mise run push
 ```
 
-以後、コードを修正したら `mise run clasp:push` するだけで GAS 側に反映される。
+以後、コードを修正したら `mise run push` するだけで GAS 側に反映される。
 `.clasp.json` は個人環境ごとに違うため Git 管理外 (`.gitignore` 済み)。
 
 > 💡 本ツールはスプレッドシートに紐づく **container-bound スクリプト**。
-> clasp は bound スクリプトにも push できるが、scriptId は必ず
-> 「スプレッドシート → 拡張機能 → Apps Script」で開いたプロジェクトのものを使うこと。
-> (`clasp create` で新規スタンドアロン作成するとスプレッドシートに紐づかないので注意)
+> `clasp create-script --type sheets` は新しいシートとバインドプロジェクトを一度に作る。
+> 既存シートに紐付ける場合は、そのシートの「拡張機能 → Apps Script」で開いた
+> プロジェクトの scriptId を使うこと(スタンドアロン作成はシートに紐づかない)。
 
 > 💡 push 対象は `dist/` ディレクトリ (`.clasp.json` の `rootDir`)。
 > `src/*.ts` を直接 push しているのではなく、ビルド成果物を送っている。

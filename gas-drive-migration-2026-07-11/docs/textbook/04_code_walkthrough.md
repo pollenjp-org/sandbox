@@ -236,25 +236,55 @@ Drive ではフォルダも「`application/vnd.google-apps.folder` という MIM
 
 </details>
 
-## 4.6 エラー処理の3層構え
+## 4.6 まず「所有権」で振り分ける — スキップと失敗の分離
+
+`moveOneFile_` は各ファイルをまず**所有者で振り分ける**。
+
+- **自分が所有していないファイル (`ownedByMe=false`)**: そもそも移行の対象に
+  ならないため、移動もコピーもせず **`recordSkip_` でスキップ記録**して移動元に残す
+  (共有ドライブへ移動できるのは原則オーナーだけで、他人所有をコピーしても
+  「共有ドライブ所有の別ファイル」ができるだけで所有権移行にならないため)。
+  件数は `stats.filesSkipped`、明細は「スキップ一覧」シートに出る
+- **自分が所有するファイル**: 下記のエラー処理付きで移動する
+
+こうして「スキップ(仕様上の対象外)」と「失敗(本当の異常)」を分け、進捗タブの
+「失敗（合計）」が**対処が必要な異常だけ**を表すようにしている。
+
+### 自分所有ファイルのエラー処理の3層構え
 
 移行は数千回の API 呼び出しになるため、エラーは「起きる前提」で設計する。
 
 ```text
 第1層: withRetry_        一時エラー (429/500/503 等) → 指数バックオフで最大5回リトライ
-第2層: COPY_FALLBACK     移動が恒久的に失敗 (他人がオーナー等) → コピーで救済
-第3層: recordFailure_    それでもダメ → 失敗リストに記録して続行 (全体は止めない)
+第2層: COPY_FALLBACK     自分所有ファイルの移動が恒久的に失敗 → コピーで救済
+第3層: recordFailure_    それでもダメ → 種別つきで失敗記録して続行 (全体は止めない)
 ```
 
 - **第1層**: `withRetry_` はエラーメッセージからレート制限・サーバーエラーを判定し、
   1→2→4→8→16秒 + ランダムのゆらぎを挟んで再試行する。権限不足などリトライで
   直らないエラーは即座に投げ直す
-- **第2層**: 他人がオーナーのファイルはオーナーしか移動できないため、
-  `files.copy` で移行先へコピーする (コピーの所有者は共有ドライブになる)。
-  ただし**コピーはファイル ID が変わる**ので、救済されたファイルは旧 URL が
-  移行先を指さない。レポートで区別して報告される
-- **第3層**: 1ファイルの失敗で全体を止めず、`failures` に記録して先へ進む。
-  最後のレポートで失敗一覧を確認し、個別に対処する
+- **第2層**: 自分所有ファイルの移動がまれに失敗した場合、`files.copy` で移行先へ
+  コピーする (コピーの所有者は共有ドライブになる)。ただし**コピーはファイル ID が
+  変わる**ので、救済されたファイルは旧 URL が移行先を指さない。「コピー救済」として集計
+- **第3層**: 1ファイルの失敗で全体を止めず、**種別 (`category`) をつけて** `failures` に
+  記録して先へ進む。種別は `FAILURE_CATEGORIES` で定義し、進捗タブの内訳と
+  「失敗一覧」シートの「種別」列に反映される
+
+<details>
+<summary>📖 失敗の種別 (FAILURE_CATEGORIES)</summary>
+
+`recordFailure_` は失敗ごとに `category` を受け取り、`stats.failuresByCategory` に
+種別別カウントを積む。現在の種別は次の4つ:
+
+- `MOVE_FAILED_NO_FALLBACK` … 移動失敗（コピー救済OFF）
+- `MOVE_AND_COPY_FAILED` … 移動もコピーも失敗
+- `FOLDER_FAILED` … フォルダ処理失敗（配下未処理）
+- `OTHER` … その他
+
+進捗タブの行の並びは `statusRows_` が唯一の定義元で、`buildStatusSheet_`
+(ラベル) と `writeStatusToSheet_` (値) の両方がこれを使うため、常に一致する。
+
+</details>
 
 さらに`runLoop_` 全体を覆う「最後の砦」として、想定外エラーが**3回連続**したら
 自動再開を止めて `ERROR` 状態で停止し、メール通知する (無限リトライ暴走の防止)。
@@ -335,14 +365,17 @@ MigrationState ──JSON.stringify──▶ "{...長い文字列...}"
 | `loadConfig_()` | 「設定」シートを読み `Config` を構築・検証。`cfg_()` がキャッシュを提供 |
 | `coerceValue_(raw, def)` | セル値を設定項目の型 (string/boolean/number) に変換 |
 | `buildSettingsSheet_ / buildStatusSheet_ / buildFailuresSheet_` | 各シートの生成・書式・保護 |
-| `writeStatusToSheet_(state)` | 進捗・失敗一覧シートへ状態を書き出す (`maybeWriteStatus_` が間引く) |
+| `statusRows_(state)` | 進捗シートの [ラベル,値] の並びの唯一の定義元 (失敗の種別内訳・スキップ行を含む) |
+| `writeStatusToSheet_(state)` | 進捗・失敗一覧・スキップ一覧シートへ状態を書き出す (`maybeWriteStatus_` が間引く) |
 | `getUiOrNull_ / confirm_ / alertOrLog_ / toast_` | UI ヘルパー (トリガー実行時は安全に無効化) |
 | `runLoop_(state)` | メインループ。時間管理と完了処理・エラー3連続の停止判定 |
 | `processFolder_(task, state, deadline)` | 1フォルダ分の処理 (ファイル移動 → サブフォルダ作成 → キュー追加) |
 | `resolveDestination_(id)` | 移行先 ID の検証。共有ドライブ ID / フォルダ ID の両対応、マイドライブ指定はエラー |
 | `listChildren_(parentId, filter)` | 子アイテム全件取得 (ページネーション対応) |
 | `ensureFolder_(name, parent, ...)` | find-or-create でフォルダを用意 |
-| `moveOneFile_(file, task, state)` | 移動 → 失敗ならコピー救済 → それも失敗なら記録 |
+| `moveOneFile_(file, task, state)` | 他人所有ならスキップ / 自分所有は 移動 → 失敗ならコピー救済 → それも失敗なら種別つき記録 |
+| `recordSkip_(state, skip)` | 他人所有などで処理しなかったファイルをスキップ集計 + スキップ一覧へ記録 |
+| `recordFailure_(state, failure)` | 失敗を種別 (`category`) つきで集計・記録 |
 | `leaveBreadcrumb_(task, state)` | 移動元フォルダに移行先リンク入りの案内 .txt を残す (冪等)。この名前のファイルは移動対象から除外 |
 | `saveState_ / loadState_ / clearStateStorage_` | 状態のチャンク保存・復元・削除 |
 | `withRetry_(label, fn)` | 指数バックオフ付きリトライ |

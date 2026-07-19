@@ -41,6 +41,7 @@
 const SHEET_SETTINGS = '設定';
 const SHEET_STATUS = '進捗';
 const SHEET_FAILURES = '失敗一覧';
+const SHEET_SKIPPED = 'スキップ一覧';
 /** 設定シートの列レイアウト (1 始まり) */
 const COL_LABEL = 1; // A: 設定項目 (保護)
 const COL_VALUE = 2; // B: 入力値 (ユーザーが編集する唯一の列)
@@ -85,14 +86,14 @@ const SETTING_DEFS = [
     {
         key: 'COPY_FALLBACK',
         label: '移動失敗時にコピーで救済',
-        description: '他人がオーナー等で移動できないファイルをコピーで救済する。コピーはファイル ID が変わる点に注意。',
+        description: '自分が所有するファイルの移動が失敗した場合にコピーで救済する。コピーはファイル ID が変わる点に注意。※他人所有ファイルはそもそも処理せずスキップする(救済対象外)。',
         type: 'boolean',
         default: true,
     },
     {
         key: 'TRASH_ORIGINAL_AFTER_COPY',
         label: 'コピー救済後に元ファイルを削除',
-        description: 'コピーで救済したあと、自分がオーナーの元ファイルをゴミ箱に入れる。',
+        description: 'コピーで救済したあと、元ファイル(自分所有)をゴミ箱に入れる。',
         type: 'boolean',
         default: false,
     },
@@ -162,6 +163,24 @@ const DRY_RUN_ID_PREFIX = 'dryrun:';
  * (再実行でも移動されない)。
  */
 const BREADCRUMB_NAME = 'このフォルダの中身は移動しました.txt';
+/**
+ * 失敗の分類。進捗シートの内訳と「失敗一覧」シートの「種別」列に使う。
+ * ここに並べた順で進捗シートに内訳行が出る (件数 0 でも常に表示)。
+ * ※他人所有ファイルは「失敗」ではなく「スキップ」として別集計する
+ *   (処理自体を行わないため。下記 recordSkip_ 参照)。
+ */
+const FAILURE_CATEGORIES = [
+    { code: 'MOVE_FAILED_NO_FALLBACK', label: '移動失敗（コピー救済OFF）' },
+    { code: 'MOVE_AND_COPY_FAILED', label: '移動もコピーも失敗' },
+    { code: 'FOLDER_FAILED', label: 'フォルダ処理失敗（配下未処理）' },
+    { code: 'OTHER', label: 'その他の失敗' },
+];
+/** スキップした理由の表示ラベル */
+const SKIP_REASON_NOT_OWNED = '他人所有のため処理せずスキップ';
+function categoryLabel_(code) {
+    const hit = FAILURE_CATEGORIES.filter((c) => c.code === code)[0];
+    return hit ? hit.label : code;
+}
 /** 進捗シートへの書き込み間隔 (ミリ秒)。頻繁すぎる書き込みを抑える */
 const STATUS_WRITE_INTERVAL_MS = 10000;
 /** 現在の実行で読み込んだ設定のキャッシュ (実行ごとに GAS がリセットする) */
@@ -201,6 +220,7 @@ function setupSheets() {
     buildSettingsSheet_(ss);
     buildStatusSheet_(ss);
     buildFailuresSheet_(ss);
+    buildSkippedSheet_(ss);
     ss.setActiveSheet(getSheet_(SHEET_SETTINGS));
     const ui = getUiOrNull_();
     if (ui) {
@@ -375,6 +395,9 @@ function resetState() {
     const failSheet = getSheet_(SHEET_FAILURES);
     if (failSheet)
         buildFailuresSheet_(getSpreadsheet_());
+    const skipSheet = getSheet_(SHEET_SKIPPED);
+    if (skipSheet)
+        buildSkippedSheet_(getSpreadsheet_());
     alertOrLog_('リセット完了', '移行状態をリセットしました。');
 }
 /**
@@ -422,6 +445,7 @@ function runLoop_(state) {
             }
             catch (e) {
                 recordFailure_(state, {
+                    category: 'FOLDER_FAILED',
                     fileId: task.src,
                     name: `(フォルダ) ${task.path}`,
                     path: task.path,
@@ -536,16 +560,18 @@ function listChildren_(parentId, filter) {
             q: q,
             pageSize: cfg_().PAGE_SIZE,
             pageToken: pageToken,
-            fields: 'nextPageToken, files(id, name, mimeType, ownedByMe)',
+            fields: 'nextPageToken, files(id, name, mimeType, ownedByMe, owners(emailAddress))',
             includeItemsFromAllDrives: true,
             supportsAllDrives: true,
         }));
         for (const f of res.files || []) {
+            const owner = (f.owners || [])[0];
             items.push({
                 id: f.id,
                 name: f.name || '(名称不明)',
                 mimeType: f.mimeType || '',
                 ownedByMe: f.ownedByMe === true,
+                ownerEmail: (owner && owner.emailAddress) || '',
             });
         }
         pageToken = res.nextPageToken;
@@ -591,14 +617,31 @@ function ensureFolder_(name, dstParentId, state, pathForLog) {
 }
 /**
  * ファイルを1件、移行元→移行先へ移動する (親の付け替え)。
- * 移動できない場合は設定に従いコピーで救済する。
+ *
+ * ★所有権を持たないファイル (ownedByMe=false) は、そもそも処理しない。
+ *   共有ドライブへ移動しても所有権は移行元組織に残る/コピーは別ファイルになる等、
+ *   「移行」として意味をなさないため、移動もコピーもせず「スキップ」として記録し、
+ *   移動元にそのまま残す (誰が所有者かは「スキップ一覧」シートで確認できる)。
+ *
+ * 自分が所有するファイルのみ移動する。移動に失敗した場合は設定に従いコピーで救済する。
  */
 function moveOneFile_(file, task, state) {
     const cfg = cfg_();
     const label = `${task.path}/${file.name}`;
+    // 他人所有ファイルは処理せずスキップ (ドライラン・本実行を問わず)
+    if (!file.ownedByMe) {
+        recordSkip_(state, {
+            fileId: file.id,
+            name: file.name,
+            path: task.path,
+            ownerEmail: file.ownerEmail,
+            reason: SKIP_REASON_NOT_OWNED,
+        });
+        return;
+    }
     if (state.dryRun) {
         state.stats.filesMoved += 1;
-        Logger.log(`  [DRY_RUN] 移動予定: ${label}${file.ownedByMe ? '' : ' (⚠ 他人がオーナーのため移動できない可能性)'}`);
+        Logger.log(`  [DRY_RUN] 移動予定: ${label}`);
         return;
     }
     try {
@@ -615,6 +658,7 @@ function moveOneFile_(file, task, state) {
     catch (moveErr) {
         if (!cfg.COPY_FALLBACK) {
             recordFailure_(state, {
+                category: 'MOVE_FAILED_NO_FALLBACK',
                 fileId: file.id,
                 name: file.name,
                 path: task.path,
@@ -629,13 +673,14 @@ function moveOneFile_(file, task, state) {
             }));
             state.stats.filesCopied += 1;
             Logger.log(`  🔁 コピーで救済: ${label} (移動不可: ${errorMessage_(moveErr)})`);
-            if (cfg.TRASH_ORIGINAL_AFTER_COPY && file.ownedByMe) {
+            if (cfg.TRASH_ORIGINAL_AFTER_COPY) {
                 withRetry_(`元ファイルをゴミ箱へ: ${label}`, () => Drive.Files.update({ trashed: true }, file.id, null, { supportsAllDrives: true }));
                 Logger.log(`  🗑 元ファイルをゴミ箱へ: ${label}`);
             }
         }
         catch (copyErr) {
             recordFailure_(state, {
+                category: 'MOVE_AND_COPY_FAILED',
                 fileId: file.id,
                 name: file.name,
                 path: task.path,
@@ -893,6 +938,34 @@ function buildSettingsSheet_(ss) {
     // 入力値以外の列を保護 (警告のみ・誤編集防止)
     protectSettingsLayout_(sheet);
 }
+/**
+ * 進捗シートに出す [ラベル, 値] の並び (唯一の定義元)。
+ * 「失敗（合計）」の下に FAILURE_CATEGORIES ごとの内訳行を出し、
+ * 「スキップ（他人所有）」を独立集計する。buildStatusSheet_ と
+ * writeStatusToSheet_ はどちらもこの関数を使うため、行の並びが必ず一致する。
+ */
+function statusRows_(state) {
+    const s = state.stats;
+    const byCat = s.failuresByCategory || {};
+    const rows = [
+        ['状態', state.status + (state.dryRun ? '（ドライラン）' : '')],
+        ['モード', state.dryRun ? 'ドライラン（変更なし）' : '本実行'],
+        ['開始', state.startedAt],
+        ['最終更新', state.updatedAt],
+        ['処理フォルダ', s.foldersVisited],
+        ['作成フォルダ', s.foldersCreated],
+        ['再利用フォルダ', s.foldersReused],
+        ['移動ファイル', s.filesMoved],
+        ['コピー救済', s.filesCopied],
+        ['スキップ（他人所有）', s.filesSkipped],
+        ['失敗（合計）', s.filesFailed],
+    ];
+    for (const c of FAILURE_CATEGORIES) {
+        rows.push(['　└ ' + c.label, byCat[c.code] || 0]);
+    }
+    rows.push(['残りフォルダ', state.queue.length]);
+    return rows;
+}
 /** 進捗シートを作成/初期化する。 */
 function buildStatusSheet_(ss) {
     let sheet = ss.getSheetByName(SHEET_STATUS);
@@ -906,22 +979,10 @@ function buildStatusSheet_(ss) {
         .setFontWeight('bold')
         .setBackground('#188038')
         .setFontColor('#ffffff');
-    const labels = [
-        ['状態', ''],
-        ['モード', ''],
-        ['開始', ''],
-        ['最終更新', ''],
-        ['処理フォルダ', ''],
-        ['作成フォルダ', ''],
-        ['再利用フォルダ', ''],
-        ['移動ファイル', ''],
-        ['コピー救済', ''],
-        ['失敗', ''],
-        ['残りフォルダ', ''],
-    ];
-    sheet.getRange(2, 1, labels.length, 2).setValues(labels);
-    sheet.getRange(2, 1, labels.length, 1).setFontWeight('bold').setBackground('#e6f4ea');
-    sheet.setColumnWidth(1, 180);
+    const rows = statusRows_(newState_(false)).map((r) => [r[0], '']);
+    sheet.getRange(2, 1, rows.length, 2).setValues(rows);
+    sheet.getRange(2, 1, rows.length, 1).setFontWeight('bold').setBackground('#e6f4ea');
+    sheet.setColumnWidth(1, 260);
     sheet.setColumnWidth(2, 420);
     sheet.setFrozenRows(1);
 }
@@ -931,12 +992,28 @@ function buildFailuresSheet_(ss) {
     if (!sheet)
         sheet = ss.insertSheet(SHEET_FAILURES);
     sheet.clear();
-    const header = ['パス', 'ファイル名', 'ファイルID', '理由'];
+    const header = ['種別', 'パス', 'ファイル名', 'ファイルID', '理由'];
     sheet.getRange(1, 1, 1, header.length).setValues([header]).setFontWeight('bold').setBackground('#fce8e6');
+    sheet.setColumnWidth(1, 220);
+    sheet.setColumnWidth(2, 280);
+    sheet.setColumnWidth(3, 240);
+    sheet.setColumnWidth(4, 260);
+    sheet.setColumnWidth(5, 520);
+    sheet.setFrozenRows(1);
+}
+/** スキップ一覧シートを作成/初期化する (他人所有などで処理しなかったファイル)。 */
+function buildSkippedSheet_(ss) {
+    let sheet = ss.getSheetByName(SHEET_SKIPPED);
+    if (!sheet)
+        sheet = ss.insertSheet(SHEET_SKIPPED);
+    sheet.clear();
+    const header = ['パス', 'ファイル名', '所有者', 'ファイルID', '理由'];
+    sheet.getRange(1, 1, 1, header.length).setValues([header]).setFontWeight('bold').setBackground('#fef7e0');
     sheet.setColumnWidth(1, 280);
     sheet.setColumnWidth(2, 240);
-    sheet.setColumnWidth(3, 260);
-    sheet.setColumnWidth(4, 520);
+    sheet.setColumnWidth(3, 240);
+    sheet.setColumnWidth(4, 260);
+    sheet.setColumnWidth(5, 320);
     sheet.setFrozenRows(1);
 }
 /**
@@ -974,42 +1051,55 @@ function maybeWriteStatus_(state) {
         writeStatusToSheet_(state);
     }
 }
-/** 進捗・失敗一覧シートへ現在の状態を書き出す。 */
+/** 進捗・失敗一覧・スキップ一覧シートへ現在の状態を書き出す。 */
 function writeStatusToSheet_(state) {
     try {
         const ss = getSpreadsheet_();
+        // 進捗 (ラベル+値を毎回まとめて書き込み、行の並びを statusRows_ に一致させる)
         let statusSheet = ss.getSheetByName(SHEET_STATUS);
         if (!statusSheet) {
             buildStatusSheet_(ss);
             statusSheet = ss.getSheetByName(SHEET_STATUS);
         }
-        const s = state.stats;
-        const rows = [
-            [state.status + (state.dryRun ? '（ドライラン）' : '')],
-            [state.dryRun ? 'ドライラン（変更なし）' : '本実行'],
-            [state.startedAt],
-            [state.updatedAt],
-            [s.foldersVisited],
-            [s.foldersCreated],
-            [s.foldersReused],
-            [s.filesMoved],
-            [s.filesCopied],
-            [s.filesFailed],
-            [state.queue.length],
-        ];
-        statusSheet.getRange(2, 2, rows.length, 1).setValues(rows);
-        // 失敗一覧
+        const rows = statusRows_(state).map((r) => [r[0], r[1]]);
+        statusSheet.getRange(2, 1, rows.length, 2).setValues(rows);
+        // 失敗一覧 (種別つき)
         let failSheet = ss.getSheetByName(SHEET_FAILURES);
         if (!failSheet) {
             buildFailuresSheet_(ss);
             failSheet = ss.getSheetByName(SHEET_FAILURES);
         }
         if (failSheet.getLastRow() > 1) {
-            failSheet.getRange(2, 1, failSheet.getLastRow() - 1, 4).clearContent();
+            failSheet.getRange(2, 1, failSheet.getLastRow() - 1, 5).clearContent();
         }
         if (state.failures.length > 0) {
-            const frows = state.failures.map((f) => [f.path, f.name, f.fileId, f.reason]);
-            failSheet.getRange(2, 1, frows.length, 4).setValues(frows);
+            const frows = state.failures.map((f) => [
+                categoryLabel_(f.category),
+                f.path,
+                f.name,
+                f.fileId,
+                f.reason,
+            ]);
+            failSheet.getRange(2, 1, frows.length, 5).setValues(frows);
+        }
+        // スキップ一覧 (他人所有などで処理しなかったファイル)
+        let skipSheet = ss.getSheetByName(SHEET_SKIPPED);
+        if (!skipSheet) {
+            buildSkippedSheet_(ss);
+            skipSheet = ss.getSheetByName(SHEET_SKIPPED);
+        }
+        if (skipSheet.getLastRow() > 1) {
+            skipSheet.getRange(2, 1, skipSheet.getLastRow() - 1, 5).clearContent();
+        }
+        if (state.skipped.length > 0) {
+            const krows = state.skipped.map((k) => [
+                k.path,
+                k.name,
+                k.ownerEmail || '(不明)',
+                k.fileId,
+                k.reason,
+            ]);
+            skipSheet.getRange(2, 1, krows.length, 5).setValues(krows);
         }
         LAST_STATUS_WRITE_MS = Date.now();
     }
@@ -1032,9 +1122,12 @@ function newState_(dryRun) {
             foldersReused: 0,
             filesMoved: 0,
             filesCopied: 0,
+            filesSkipped: 0,
             filesFailed: 0,
+            failuresByCategory: {},
         },
         failures: [],
+        skipped: [],
         errorStreak: 0,
         startedAt: now,
         updatedAt: now,
@@ -1190,21 +1283,45 @@ function escapeForQuery_(value) {
 }
 function recordFailure_(state, failure) {
     state.stats.filesFailed += 1;
+    if (!state.stats.failuresByCategory)
+        state.stats.failuresByCategory = {};
+    const cat = failure.category || 'OTHER';
+    state.stats.failuresByCategory[cat] = (state.stats.failuresByCategory[cat] || 0) + 1;
     if (state.failures.length < MAX_RECORDED_FAILURES) {
         state.failures.push(failure);
     }
     else if (state.failures.length === MAX_RECORDED_FAILURES) {
         state.failures.push({
+            category: 'OTHER',
             fileId: '-',
             name: '-',
             path: '-',
             reason: `(これ以上の失敗詳細は記録上限 ${MAX_RECORDED_FAILURES} 件を超えたため省略)`,
         });
     }
-    Logger.log(`  ✖ 失敗: ${failure.path}/${failure.name} — ${failure.reason}`);
+    Logger.log(`  ✖ 失敗[${categoryLabel_(cat)}]: ${failure.path}/${failure.name} — ${failure.reason}`);
+}
+/** 他人所有などで処理せずスキップしたファイルを記録する。 */
+function recordSkip_(state, skip) {
+    state.stats.filesSkipped += 1;
+    if (state.skipped.length < MAX_RECORDED_FAILURES) {
+        state.skipped.push(skip);
+    }
+    else if (state.skipped.length === MAX_RECORDED_FAILURES) {
+        state.skipped.push({
+            fileId: '-',
+            name: '-',
+            path: '-',
+            ownerEmail: '',
+            reason: `(これ以上のスキップ詳細は記録上限 ${MAX_RECORDED_FAILURES} 件を超えたため省略)`,
+        });
+    }
+    const who = skip.ownerEmail ? ` (所有者: ${skip.ownerEmail})` : '';
+    Logger.log(`  ⏭ スキップ: ${skip.path}/${skip.name}${who} — ${skip.reason}`);
 }
 function buildReport_(state) {
     const s = state.stats;
+    const byCat = s.failuresByCategory || {};
     const lines = [
         '================ 移行レポート ================',
         `状態        : ${state.status}${state.dryRun ? ' (DRY_RUN)' : ''}`,
@@ -1214,14 +1331,24 @@ function buildReport_(state) {
         `作成フォルダ: ${s.foldersCreated} (既存を再利用: ${s.foldersReused})`,
         `移動ファイル: ${s.filesMoved}`,
         `コピー救済  : ${s.filesCopied}`,
-        `失敗        : ${s.filesFailed}`,
-        `残りフォルダ: ${state.queue.length}`,
-        '=============================================',
+        `スキップ(他人所有): ${s.filesSkipped}`,
+        `失敗(合計)  : ${s.filesFailed}`,
     ];
+    for (const c of FAILURE_CATEGORIES) {
+        lines.push(`  └ ${c.label}: ${byCat[c.code] || 0}`);
+    }
+    lines.push(`残りフォルダ: ${state.queue.length}`);
+    lines.push('=============================================');
+    if (state.skipped.length > 0) {
+        lines.push('--- スキップ一覧 (他人所有など・移動元に残置) ---');
+        for (const k of state.skipped) {
+            lines.push(`- ${k.path}/${k.name} (所有者: ${k.ownerEmail || '不明'})`);
+        }
+    }
     if (state.failures.length > 0) {
         lines.push('--- 失敗一覧 ---');
         for (const f of state.failures) {
-            lines.push(`- ${f.path}/${f.name} (${f.fileId}): ${f.reason}`);
+            lines.push(`- [${categoryLabel_(f.category)}] ${f.path}/${f.name} (${f.fileId}): ${f.reason}`);
         }
     }
     return lines.join('\n');

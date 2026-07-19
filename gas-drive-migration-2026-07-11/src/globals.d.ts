@@ -21,6 +21,8 @@ declare namespace DriveV3 {
     driveId?: string;
     ownedByMe?: boolean;
     trashed?: boolean;
+    /** 所有者情報 (マイドライブのアイテムで取得可能) */
+    owners?: Array<{ emailAddress?: string; displayName?: string }>;
   }
 
   /** files.list のレスポンス */

@@ -20,10 +20,14 @@ while (キューにフォルダが残っている?) is (はい)
   partition "processFolder (べき等 = 何度やり直しても安全)" {
     :フォルダ内のファイルを一覧取得;
     while (未処理のファイルがある?) is (ある)
-      :ファイルを移動\n(addParents / removeParents);
-      if (移動に失敗?) then (はい)
-        :コピーで救済\n(それも失敗なら失敗リストへ記録);
-      else (いいえ)
+      if (自分が所有している?) then (いいえ=他人所有)
+        :スキップ集計 + スキップ一覧へ記録\n(移動元にそのまま残す);
+      else (はい)
+        :ファイルを移動\n(addParents / removeParents);
+        if (移動に失敗?) then (はい)
+          :コピーで救済\n(それも失敗なら\n種別つきで失敗記録);
+        else (いいえ)
+        endif
       endif
     endwhile (ない)
     :サブフォルダを一覧取得;

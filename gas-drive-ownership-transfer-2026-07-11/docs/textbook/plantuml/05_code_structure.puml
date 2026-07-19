@@ -1,0 +1,58 @@
+@startuml 05_code_structure
+title ソースコードの構成と依存関係
+skinparam defaultFontName "Noto Sans CJK JP"
+skinparam shadowing false
+
+package "src/" {
+  class "sheet.ts" as sheet <<エントリーポイント(シート UI)>> {
+    +onOpen() : カスタムメニュー追加
+    +sheetSetup() : 設定・台帳シートの準備
+    +sheetStartTree() / sheetStartSearch()
+    +sheetShowStatus() / sheetStop()
+    +sheetCountOwned()
+    readSheetSettings()
+    recordSheetLog() / flushSheetLog()
+  }
+  class "transfer.ts" as transfer <<中核ロジック>> {
+    startTransferWithStrategy()
+    +resumeTransfer() : トリガーが呼ぶ
+    stopTransfer()
+    runBatch() / runTreeBatch() / runSearchBatch()
+    transferOwnershipIfOwned()
+    finishTransfer() / formatProgress()
+    describeOwnedItems()
+  }
+  class "state.ts" as state <<状態の永続化>> {
+    saveState()
+    loadState()
+    clearState()
+  }
+  class "triggers.ts" as triggers <<トリガー管理>> {
+    scheduleResume()
+    deleteResumeTriggers()
+  }
+  class "config.ts" as config <<チューニング定数>> {
+    CONFIG: TransferConfig
+    OWNED_ITEMS_QUERY
+  }
+  class "types.d.ts" as types <<型定義(コンパイル時のみ)>> {
+    TransferConfig / TransferState
+    TransferStartOptions / TransferStats
+  }
+  class "appsscript.json" as manifest <<マニフェスト>> {
+    timeZone / runtimeVersion
+    oauthScopes
+  }
+}
+
+sheet --> transfer : 開始 / 停止 / 件数確認
+sheet --> state : 進捗の読み取り
+transfer ..> sheet : 台帳へ記録\n(recordSheetLog)
+transfer --> state : 保存 / 復元
+transfer --> triggers : 予約 / 削除
+transfer --> config : 定数参照
+sheet --> config : 定数参照
+state ..> types : 型を参照
+transfer ..> types : 型を参照
+manifest .. sheet : 実行環境を定義
+@enduml

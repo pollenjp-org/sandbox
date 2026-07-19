@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    // GAS の V8 ランタイムが解釈できる範囲の JavaScript を出力する
+    "target": "ES2019",
+    "lib": ["ES2019"],
+    // GAS にはモジュールシステムがないため import/export は使わない(使うとコンパイルエラーになる)
+    "module": "none",
+    "outDir": "dist",
+    "rootDir": "src",
+    // 型チェックは最大限厳しくする
+    "strict": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    // GoogleAppsScript 名前空間(DriveApp などの型)を有効にする
+    "types": ["google-apps-script"],
+    "newLine": "lf"
+  },
+  "include": ["src/**/*.ts"]
+}

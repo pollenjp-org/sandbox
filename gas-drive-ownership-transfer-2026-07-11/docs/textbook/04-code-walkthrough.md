@@ -22,14 +22,14 @@ gas-drive-ownership-transfer-2026-07-11/
 │   └── sheet.ts           # エントリーポイント: メニュー・設定シート・台帳(第 7 章)
 ├── dist/                  # ビルド成果物(自動生成、Git 管理外)
 └── docs/textbook/         # この教科書
-    ├── images/            # 章に挿入する図(生成済み SVG)
-    ├── plantuml/          # 図の生成元(.puml)と mise タスク
-    └── drawio/            # drawio を使う場合の手引き
+    ├── plantuml/          # 図の生成元(.puml)+ 生成物(out/*.svg)と mise タスク
+    ├── drawio/            # drawio を使う場合の手引き
+    └── images/            # drawio 図の SVG 置き場(必要時に作成)
 ```
 
 ファイル間の関係と役割分担は次の図のとおりです。
 
-![ソースコードの構成図](./images/05_code_structure.svg)
+![ソースコードの構成図](./plantuml/out/05_code_structure.svg)
 
 *図 4-1: ファイルごとの役割と依存関係。矢印は「呼び出す・参照する」方向*
 

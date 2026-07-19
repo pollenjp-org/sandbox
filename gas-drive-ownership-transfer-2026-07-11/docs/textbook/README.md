@@ -37,12 +37,12 @@
 
 | 図 | 種類 | 使われる章 |
 | --- | --- | --- |
-| [全体アーキテクチャ](./images/01_architecture.svg) | コンポーネント図 | 第 1 章・第 3 章 |
-| [1 バッチの処理フロー](./images/02_batch_activity.svg) | アクティビティ図 | 第 3 章 |
-| [中断と自動再開のシーケンス](./images/03_resume_sequence.svg) | シーケンス図 | 第 3 章 |
-| [実行状態の遷移](./images/04_state_machine.svg) | 状態遷移図 | 第 3 章・第 5 章 |
-| [ソースコードの構成](./images/05_code_structure.svg) | クラス図(構成図) | 第 4 章 |
-| [フォルダツリーと走査順](./images/06_folder_tree_traversal.svg) | ツリー図(WBS) | 第 3 章 |
+| [全体アーキテクチャ](./plantuml/out/01_architecture.svg) | コンポーネント図 | 第 1 章・第 3 章 |
+| [1 バッチの処理フロー](./plantuml/out/02_batch_activity.svg) | アクティビティ図 | 第 3 章 |
+| [中断と自動再開のシーケンス](./plantuml/out/03_resume_sequence.svg) | シーケンス図 | 第 3 章 |
+| [実行状態の遷移](./plantuml/out/04_state_machine.svg) | 状態遷移図 | 第 3 章・第 5 章 |
+| [ソースコードの構成](./plantuml/out/05_code_structure.svg) | クラス図(構成図) | 第 4 章 |
+| [フォルダツリーと走査順](./plantuml/out/06_folder_tree_traversal.svg) | ツリー図(WBS) | 第 3 章 |
 
 ## 表記ルール
 

@@ -14,7 +14,7 @@
 
 この 3 点セットを、全件処理が終わるまで繰り返します。実行状態の遷移を図にすると次のとおりです。
 
-![実行状態の遷移図](./images/04_state_machine.svg)
+![実行状態の遷移図](./plantuml/out/04_state_machine.svg)
 
 *図 3-1: 実行状態の遷移。「実行中 → 再開待ち → 実行中 → …」のループを完了まで繰り返す*
 
@@ -45,7 +45,7 @@
 
 そこで本ツールは、再帰の代わりに **「これから処理するフォルダの一覧」を自前のキュー(待ち行列)として持つ** 方式にしています。
 
-![フォルダツリーと走査順](./images/06_folder_tree_traversal.svg)
+![フォルダツリーと走査順](./plantuml/out/06_folder_tree_traversal.svg)
 
 *図 3-2: フォルダツリーの走査順。同じ深さのフォルダを先に処理していく(幅優先探索)*
 
@@ -102,7 +102,7 @@ const files2 = DriveApp.continueFileIterator(token); // しおりから再開で
 
 ここまでの部品(キュー・継続トークン・チェックポイント・トリガー)を組み合わせた、1 バッチの流れが次の図です。
 
-![1 バッチの処理フロー](./images/02_batch_activity.svg)
+![1 バッチの処理フロー](./plantuml/out/02_batch_activity.svg)
 
 *図 3-3: 1 バッチの処理フロー。ループの各所に「制限時間チェック」が差し込まれている点に注目*
 
@@ -110,7 +110,7 @@ const files2 = DriveApp.continueFileIterator(token); // しおりから再開で
 
 そして中断から再開までの登場人物のやりとりをシーケンス図で見ると、次のようになります。
 
-![中断と自動再開のシーケンス図](./images/03_resume_sequence.svg)
+![中断と自動再開のシーケンス図](./plantuml/out/03_resume_sequence.svg)
 
 *図 3-4: 中断と自動再開のシーケンス。トリガーが `resumeTransfer()` を呼び、保存された進捗から続行する*
 

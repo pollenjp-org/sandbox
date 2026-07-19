@@ -7,8 +7,7 @@ dist/
 # clasp の個人設定(スクリプト ID は人ごとに異なるためコミットしない)
 .clasp.json
 
-# PlantUML の生成物(docs/textbook/images/ にコピーしたものをコミットする)
-docs/textbook/plantuml/out/
+# PlantUML の生成物(docs/textbook/plantuml/out/*.svg)は教科書が参照するためコミットする
 
 # mise のローカル上書き設定
 mise.local.toml

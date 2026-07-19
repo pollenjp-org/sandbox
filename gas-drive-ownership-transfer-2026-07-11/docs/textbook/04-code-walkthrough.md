@@ -21,8 +21,10 @@ gas-drive-ownership-transfer-2026-07-11/
 │   ├── transfer.ts        # 中核ロジック(走査と譲渡・再開・停止)
 │   └── sheet.ts           # エントリーポイント: メニュー・設定シート・台帳(第 7 章)
 ├── dist/                  # ビルド成果物(自動生成、Git 管理外)
-├── docs/textbook/         # この教科書
-└── plantuml/              # 図の生成元(.puml)と mise タスク
+└── docs/textbook/         # この教科書
+    ├── images/            # 章に挿入する図(生成済み SVG)
+    ├── plantuml/          # 図の生成元(.puml)と mise タスク
+    └── drawio/            # drawio を使う場合の手引き
 ```
 
 ファイル間の関係と役割分担は次の図のとおりです。

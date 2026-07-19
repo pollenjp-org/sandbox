@@ -8,7 +8,7 @@ dist/
 .clasp.json
 
 # PlantUML の生成物(docs/textbook/images/ にコピーしたものをコミットする)
-plantuml/out/
+docs/textbook/plantuml/out/
 
 # mise のローカル上書き設定
 mise.local.toml

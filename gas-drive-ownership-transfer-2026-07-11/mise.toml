@@ -33,8 +33,8 @@ description = "PlantUML 図を生成して docs/textbook/images/ へコピーす
 run = '''
 #!/usr/bin/env bash
 set -euo pipefail
-(cd plantuml && mise run plantuml:generate svg)
+(cd docs/textbook/plantuml && mise run plantuml:generate svg)
 mkdir -p docs/textbook/images
-cp plantuml/out/*.svg docs/textbook/images/
+cp docs/textbook/plantuml/out/*.svg docs/textbook/images/
 echo "Copied diagrams to docs/textbook/images/"
 '''

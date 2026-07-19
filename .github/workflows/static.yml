@@ -5,9 +5,10 @@
 #   /sandbox/rust-leptos-start-trunk-2025-08-22/    -> rust-leptos (dist-release を直置き)
 #   /sandbox/book-mindmap-explorer-2026-05-03/      -> Vite + React の book mind map explorer
 #   /sandbox/html-text-extractor-2026-05-04/        -> Vite + React の HTML text extractor
+#   /sandbox/image-compressor-2026-07-15/           -> Vite + React の画像・PDF 圧縮ツール
 #
 # rust-leptos は既に dist-release/ が git にコミットされているのでビルド不要。
-# book mind map と html-text-extractor は npm でビルドし、サブディレクトリに配置する。
+# book mind map / html-text-extractor / image-compressor は npm でビルドし、サブディレクトリに配置する。
 name: Deploy static content to Pages
 
 on:
@@ -42,6 +43,7 @@ jobs:
           cache-dependency-path: |
             book-mindmap-explorer-2026-05-03/package-lock.json
             html-text-extractor-2026-05-04/package-lock.json
+            image-compressor-2026-07-15/package-lock.json
 
       - name: Build book-mindmap-explorer
         working-directory: book-mindmap-explorer-2026-05-03
@@ -55,6 +57,14 @@ jobs:
         working-directory: html-text-extractor-2026-05-04
         env:
           VITE_BASE: /sandbox/html-text-extractor-2026-05-04/
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build image-compressor
+        working-directory: image-compressor-2026-07-15
+        env:
+          VITE_BASE: /sandbox/image-compressor-2026-07-15/
         run: |
           npm ci
           npm run build
@@ -74,6 +84,9 @@ jobs:
           # html-text-extractor をサブディレクトリに配置
           mkdir -p _site/html-text-extractor-2026-05-04
           cp -r html-text-extractor-2026-05-04/dist/. _site/html-text-extractor-2026-05-04/
+          # image-compressor をサブディレクトリに配置
+          mkdir -p _site/image-compressor-2026-07-15
+          cp -r image-compressor-2026-07-15/dist/. _site/image-compressor-2026-07-15/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

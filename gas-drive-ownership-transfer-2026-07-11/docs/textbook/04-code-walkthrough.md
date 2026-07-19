@@ -23,8 +23,7 @@ gas-drive-ownership-transfer-2026-07-11/
 ├── dist/                  # ビルド成果物(自動生成、Git 管理外)
 └── docs/textbook/         # この教科書
     ├── plantuml/          # 図の生成元(.puml)+ 生成物(out/*.svg)と mise タスク
-    ├── drawio/            # drawio を使う場合の手引き
-    └── images/            # drawio 図の SVG 置き場(必要時に作成)
+    └── drawio/            # drawio の手引きと生成物(out/*.svg、必要時に作成)
 ```
 
 ファイル間の関係と役割分担は次の図のとおりです。

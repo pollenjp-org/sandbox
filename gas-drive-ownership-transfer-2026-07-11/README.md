@@ -56,8 +56,7 @@ mise run push
 ├── dist/           # ビルド成果物 = clasp が push する実体(自動生成)
 ├── docs/textbook/  # 教科書ドキュメント
 │   ├── plantuml/   # 図のソース(.puml)+ 生成物(out/*.svg)と生成タスク
-│   ├── drawio/     # drawio を使う場合の手引き
-│   └── images/     # drawio 図の SVG 置き場(必要時に作成)
+│   └── drawio/     # drawio の手引きと生成物(out/*.svg、必要時に作成)
 ├── mise.toml       # ツールバージョンとタスク定義
 ├── package.json    # 依存パッケージ(clasp / typescript / 型定義)
 └── pnpm-workspace.yaml # pnpm 設定(リリース後 1 週間未満のバージョンを使わない)

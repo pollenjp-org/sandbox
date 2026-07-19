@@ -29,12 +29,10 @@ description = "Apps Script エディタをブラウザで開く"
 run = "pnpm exec clasp open-script"
 
 [tasks.diagrams]
-description = "PlantUML 図を生成して docs/textbook/images/ へコピーする"
+description = "PlantUML 図を docs/textbook/plantuml/out/ に生成する"
 run = '''
 #!/usr/bin/env bash
 set -euo pipefail
 (cd docs/textbook/plantuml && mise run plantuml:generate svg)
-mkdir -p docs/textbook/images
-cp docs/textbook/plantuml/out/*.svg docs/textbook/images/
-echo "Copied diagrams to docs/textbook/images/"
+echo "Generated diagrams in docs/textbook/plantuml/out/"
 '''

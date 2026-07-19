@@ -82,7 +82,7 @@ Google Drive には 2 種類の保存場所があります。
 
 本プロジェクトは「ローカルで開発して、Google 上で実行する」構成です。
 
-![全体アーキテクチャ図](./images/01_architecture.svg)
+![全体アーキテクチャ図](./plantuml/out/01_architecture.svg)
 
 *図 1-1: 全体アーキテクチャ(ローカル開発環境と Google 側の関係)*
 

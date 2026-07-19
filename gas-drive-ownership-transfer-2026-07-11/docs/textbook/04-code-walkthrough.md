@@ -18,7 +18,8 @@ gas-drive-ownership-transfer-2026-07-11/
 │   ├── config.ts          # 動作チューニング用の定数
 │   ├── state.ts           # 進捗の保存・復元(チェックポイント)
 │   ├── triggers.ts        # 再開トリガーの管理
-│   ├── transfer.ts        # 中核ロジック(走査と譲渡・再開・停止)
+│   ├── transfer.ts        # 中核ロジック(走査と譲渡/招待・再開・停止)
+│   ├── accept.ts          # 招待方式の受信側: 招待された所有権の一括承諾(付録 B)
 │   └── sheet.ts           # エントリーポイント: メニュー・設定シート・台帳(第 7 章)
 ├── dist/                  # ビルド成果物(自動生成、Git 管理外)
 └── docs/textbook/         # この教科書

@@ -37,3 +37,12 @@ const CONFIG: TransferConfig = {
  * Drive の検索クエリ(検索走査と件数確認で使用)。
  */
 const OWNED_ITEMS_QUERY = "'me' in owners and trashed = false";
+
+/**
+ * Google ネイティブ形式(ドキュメント/スプレッドシート/スライド等)の MIME タイプの接頭辞。
+ * 招待方式(individual アカウント)で所有権を移転できるのは、この接頭辞を持つファイルだけ。
+ * フォルダ(application/vnd.google-apps.folder)や、アップロードした PDF・Office ファイル等は対象外。
+ */
+const GOOGLE_NATIVE_MIME_PREFIX = 'application/vnd.google-apps.';
+/** フォルダの MIME タイプ(ネイティブ判定から除外する) */
+const FOLDER_MIME_TYPE = 'application/vnd.google-apps.folder';

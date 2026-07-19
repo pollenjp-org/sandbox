@@ -141,6 +141,17 @@ npm パッケージはインストール時に任意のスクリプト(postinsta
 
 </details>
 
+<details>
+<summary>📖 補足: uuid の deprecation 警告と overrides</summary>
+
+`@google/clasp` は内部で Google の認証ライブラリ経由に非サポートの `uuid@9`
+(deprecated) を引き込むため、そのままだとインストール時に deprecation 警告が出る。
+`pnpm-workspace.yaml` の `overrides` でサポート中の `uuid@11`(API 互換)に上書きして
+警告を解消している。いずれも**開発時に使う clasp の依存**で、GAS 上で動く成果物
+(`dist/main.js`)には含まれないため、動作への影響はない。
+
+</details>
+
 ## 3.5 ビルドする
 
 コードが正しくコンパイルできることを確認する。

@@ -6,3 +6,10 @@
 #   リリースを「寝かせて」から使うことで被害を避ける。10080 分 = 7 日。
 #   (緊急のセキュリティ修正を即時取り込みたい場合は minimumReleaseAgeExclude で個別除外)
 minimumReleaseAge: 10080
+
+# 推移的依存のバージョン上書き。
+#   uuid: @google/clasp → googleapis/google-auth-library → gaxios が
+#     非サポートの uuid@9 (deprecated) を引き込むため、サポート中の
+#     uuid@11 に寄せて deprecation 警告を解消する (API 互換・開発時のみ使用)。
+overrides:
+  uuid: ^11.0.0

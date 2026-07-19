@@ -29,5 +29,8 @@ depends = ["build"]
 run = "npx clasp push"
 
 [tasks."docs:diagrams"]
-description = "教科書用の図 (plantuml/out/*.svg) を再生成"
-run = "mise --cd plantuml run plantuml:generate svg"
+description = "教科書用の図 (plantuml/out/*.svg, drawio/out/*.svg) を再生成"
+run = [
+  "mise --cd docs/textbook/plantuml run plantuml:generate svg",
+  "mise --cd docs/textbook/drawio run drawio:generate",
+]

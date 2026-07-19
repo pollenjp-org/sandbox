@@ -1,0 +1,38 @@
+@startuml 05_activity_folder_loop
+skinparam defaultFontName "Noto Sans CJK JP"
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+title runLoop / processFolder の処理フロー
+
+start
+:「設定」シートを読み込み・検証;
+:移行先を解決\n(共有ドライブ内であることを確認);
+:キューに (移行元ルート, 移行先ルート) を投入;
+
+while (キューにフォルダが残っている?) is (はい)
+  if (制限時間を超過?) then (はい)
+    :状態を SUSPENDED で保存;
+    :60秒後の再開トリガーを予約;
+    stop
+  else (いいえ)
+  endif
+  :キュー先頭のフォルダを「覗く」\n(完了するまで取り出さない);
+  partition "processFolder (べき等 = 何度やり直しても安全)" {
+    :フォルダ内のファイルを一覧取得;
+    while (未処理のファイルがある?) is (ある)
+      :ファイルを移動\n(addParents / removeParents);
+      if (移動に失敗?) then (はい)
+        :コピーで救済\n(それも失敗なら失敗リストへ記録);
+      else (いいえ)
+      endif
+    endwhile (ない)
+    :サブフォルダを一覧取得;
+    :移行先に同名フォルダを\nfind-or-create;
+    :サブフォルダの組をキュー末尾へ追加;
+  }
+  :キューから先頭を取り除き、状態を保存;
+endwhile (いいえ)
+
+:完了処理\n(DONE 保存・トリガー削除・レポート/通知);
+stop
+@enduml

@@ -1,0 +1,26 @@
+@startuml 01_problem_overview
+skinparam defaultFontName "Noto Sans CJK JP"
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundCorner 8
+title ドメイン間フォルダ移行の壁 — 手動操作でできること・できないこと
+
+rectangle "移行元: 個人 / 別ドメイン (@google.com)" as SRC #FAFAFA {
+  actor "移行元ユーザー\n(ファイルのオーナー)" as srcUser
+  folder "マイドライブ\n移行対象フォルダ\n(サブフォルダ + ファイル)" as myDrive
+  srcUser -- myDrive
+}
+
+rectangle "移行先: Google Workspace (@misugi-corp.co.jp)" as DST #F0F8FF {
+  database "共有ドライブ\n(所有者は個人ではなく「組織」)" as sd
+}
+
+myDrive -[#B00020,dashed]-> sd : <color:#B00020>✗ フォルダごと移動</color>\n<color:#B00020>(組織外ユーザーは権限エラー)</color>
+myDrive -[#B00020,dashed]-> sd : <color:#B00020>✗ オーナー権限の譲渡</color>\n<color:#B00020>(ドメインをまたぐと実行不可)</color>
+myDrive -[#1B5E20,bold]-> sd : <color:#1B5E20>○ ファイル単位の移動は可能</color>\n<color:#1B5E20>(共有ドライブのメンバーなら)</color>
+
+note bottom of sd
+  この「ファイル単位なら移動できる」という仕様を利用し、
+  **フォルダは作り直し・ファイルは移動** という戦略で移行する
+end note
+@enduml

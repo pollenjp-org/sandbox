@@ -9,6 +9,9 @@ node_modules/
 # ログ類
 *.log
 
-# ※ dist/ と plantuml/out/ は「意図的にコミットする」
-#   - dist/       : GAS エディタへコピペするだけで使えるようにするため
-#   - plantuml/out: GitHub 上で教科書 (docs/textbook) の図を表示するため
+# 図の PNG は確認用。SVG だけをコミットする
+docs/textbook/plantuml/out/*.png
+
+# ※ dist/ と docs/textbook/**/out/*.svg は「意図的にコミットする」
+#   - dist/                      : GAS エディタへコピペするだけで使えるようにするため
+#   - docs/textbook/**/out/*.svg : GitHub 上で教科書の図を表示するため

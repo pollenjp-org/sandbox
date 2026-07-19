@@ -1,0 +1,15 @@
+# pnpm の設定 (pnpm v10 以降は設定をここに置く)
+#
+# minimumReleaseAge: 公開から一定時間 (分) 経っていない新バージョンを
+#   依存解決の候補から外す。サプライチェーン攻撃で紛れ込んだ悪意ある
+#   バージョンは公開後まもなく検知・削除されることが多いため、新しすぎる
+#   リリースを「寝かせて」から使うことで被害を避ける。10080 分 = 7 日。
+#   (緊急のセキュリティ修正を即時取り込みたい場合は minimumReleaseAgeExclude で個別除外)
+minimumReleaseAge: 10080
+
+# 推移的依存のバージョン上書き。
+#   uuid: @google/clasp → googleapis/google-auth-library → gaxios が
+#     非サポートの uuid@9 (deprecated) を引き込むため、サポート中の
+#     uuid@11 に寄せて deprecation 警告を解消する (API 互換・開発時のみ使用)。
+overrides:
+  uuid: ^11.0.0

@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    // GAS の V8 ランタイムは ES2019 相当の構文を安全に実行できる
+    "target": "ES2019",
+    "lib": ["ES2019"],
+    // GAS は ES Modules (import/export) 非対応のため「モジュールなし」の
+    // グローバルスクリプトとしてコンパイルする
+    "module": "none",
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "types": ["google-apps-script"],
+    "skipLibCheck": true,
+    "newLine": "lf",
+    "removeComments": false
+  },
+  "include": ["src/**/*.ts"]
+}

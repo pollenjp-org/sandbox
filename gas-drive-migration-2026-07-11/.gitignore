@@ -1,0 +1,18 @@
+# npm
+node_modules/
+
+# clasp の実プロジェクト設定 (scriptId は個人環境ごとに異なるためコミットしない)
+# → .clasp.json.example をコピーして使う
+.clasp.json
+.clasprc.json
+
+# ログ類
+*.log
+
+/dist/
+
+# 図の PNG は確認用。SVG だけをコミットする
+docs/textbook/plantuml/out/*.png
+
+# ※ docs/textbook/**/out/*.svg は「意図的にコミットする」
+#   - docs/textbook/**/out/*.svg : GitHub 上で教科書の図を表示するため

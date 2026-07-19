@@ -1,0 +1,54 @@
+# drawio (*.drawio) を白背景の SVG (out/*.svg) に書き出すための mise 設定。
+#
+# 使い方:
+#   mise trust
+#   mise run drawio:generate     # *.drawio → out/*.svg
+#
+# レンダリング方法は2通り:
+#   (1) drawio-desktop があればそれを使う (公式・最も忠実)
+#   (2) 無ければ Chromium(Playwright) + mxgraph のフォールバック renderer (render.mjs)
+#       ※本 textbook の .drawio は mxgraph 互換の図形だけで描いているため(1)(2)で同じ絵になる
+#
+# 依存 (フォールバック時): node(ルート mise.toml で管理) + playwright + mxgraph + Chromium。
+#   これらは普段の開発には不要なので package.json には入れていない。図を「再生成」
+#   したいときだけ次で導入する:
+#     pnpm add -D playwright mxgraph && pnpm exec playwright install chromium
+#   (このリポジトリのサンドボックスでは Chromium は導入済み)
+#   生成済み SVG は out/ にコミットしてあるため、通常は再生成不要。
+
+[tasks."drawio:generate"]
+description = "Render *.drawio to out/*.svg (white background)"
+sources = ["*.drawio", "render.mjs"]
+outputs = { auto = true }
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+
+mkdir -p out
+
+# (1) drawio-desktop があれば優先 (公式ツール)
+if command -v drawio >/dev/null 2>&1; then
+  for f in *.drawio; do
+    [[ -e "$f" ]] || continue
+    # -b 10 で余白、背景は既定で白。xvfb はヘッドレス環境向け
+    xvfb-run -a drawio --export --format svg --border 10 \
+      --output "out/${f%.drawio}.svg" "$f"
+  done
+  echo "drawio SVGs generated in out/ (via drawio-desktop)"
+  exit 0
+fi
+
+# (2) フォールバック: Chromium + mxgraph (render.mjs)
+if node -e "require('playwright');require('mxgraph')" >/dev/null 2>&1; then
+  for f in *.drawio; do
+    [[ -e "$f" ]] || continue
+    node render.mjs "$f" "out/${f%.drawio}.svg"
+  done
+  echo "drawio SVGs generated in out/ (via Chromium+mxgraph)"
+  exit 0
+fi
+
+# どちらも無い: 生成済み SVG を保持したままスキップ (再生成したい場合の導入方法を案内)
+echo "⚠ drawio-desktop も playwright/mxgraph も見つかりません。out/ の既存 SVG を維持してスキップします。"
+echo "  再生成するには: pnpm add -D playwright mxgraph && pnpm exec playwright install chromium"
+'''

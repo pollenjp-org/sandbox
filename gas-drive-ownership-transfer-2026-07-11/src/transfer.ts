@@ -63,6 +63,7 @@ function createInitialState(strategy: TransferStrategy, options: TransferStartOp
     myEmail,
     newOwnerEmail,
     dryRun: options.dryRun,
+    method: options.method,
     includeFolders: CONFIG.includeFolders,
     startedAt: new Date().toISOString(),
     batchCount: 1,
@@ -70,7 +71,15 @@ function createInitialState(strategy: TransferStrategy, options: TransferStartOp
     current: null,
     searchPhase: 'files',
     searchToken: null,
-    stats: { scanned: 0, transferred: 0, planned: 0, skippedNotOwned: 0, errors: 0 },
+    stats: {
+      scanned: 0,
+      transferred: 0,
+      invited: 0,
+      planned: 0,
+      skippedNotOwned: 0,
+      skippedUnsupported: 0,
+      errors: 0,
+    },
   };
 }
 
@@ -224,7 +233,35 @@ function runSearchBatch(state: TransferState, deadline: number): boolean {
 }
 
 /**
+ * Advanced Drive Service(高度な Drive サービス / Drive API v3)を返す。
+ * appsscript.json の enabledAdvancedServices で有効化していないと undefined になるため、
+ * その場合は分かりやすいエラーにする。
+ */
+function driveApi(): GoogleAppsScript.Drive {
+  if (Drive === undefined) {
+    throw new Error(
+      'Advanced Drive Service(Drive)が有効化されていません。' +
+        'Apps Script エディタの「サービス」で Drive API を追加するか、appsscript.json の enabledAdvancedServices を確認してください。'
+    );
+  }
+  return Drive;
+}
+
+/**
+ * ファイルが Google ネイティブ形式(ドキュメント/スプレッドシート/スライド等)かどうか。
+ * 招待方式(個人アカウント)で所有権を移転できるのはネイティブ形式のファイルだけ。
+ * ここに渡ってくるのは kind === 'file' のアイテムのみ(フォルダは呼び出し側で除外済み)。
+ */
+function isGoogleNativeFile(item: DriveItem): boolean {
+  const mimeType = (item as GoogleAppsScript.Drive.File).getMimeType();
+  return mimeType.indexOf(GOOGLE_NATIVE_MIME_PREFIX) === 0 && mimeType !== FOLDER_MIME_TYPE;
+}
+
+/**
  * アイテムが自分の所有物であれば所有権を譲渡する。
+ * - direct(直接譲渡): DriveApp.setOwner() による即時譲渡(Workspace 同一ドメイン向け)。
+ * - invite(招待方式): Drive API v3 の pendingOwner による招待(個人アカウント向け)。
+ *   ネイティブ形式のファイルのみが対象で、フォルダ・非ネイティブ形式は「対象外」として記録する。
  * DRY RUN 中はログ出力のみ。個々の失敗は記録して処理を続行する。
  */
 function transferOwnershipIfOwned(item: DriveItem, state: TransferState, kind: 'file' | 'folder'): void {
@@ -243,6 +280,37 @@ function transferOwnershipIfOwned(item: DriveItem, state: TransferState, kind: '
       state.stats.skippedNotOwned++;
       return;
     }
+    if (state.method === 'invite') {
+      // 招待方式(個人アカウント向け): pendingOwner を立てて「招待」する。
+      // 個人アカウントで移転できるのは Google ネイティブ形式のファイルのみ。
+      // フォルダ・非ネイティブ形式(PDF/Office 等)は対象外として記録しスキップする。
+      if (kind === 'folder' || !isGoogleNativeFile(item)) {
+        state.stats.skippedUnsupported++;
+        const reason =
+          kind === 'folder'
+            ? 'フォルダは招待方式(個人アカウント)では移転できません'
+            : '非ネイティブ形式(PDF/Office 等)は招待方式では移転できません';
+        console.log(`対象外: ${label}(${reason})`);
+        recordSheetLog(state, '対象外', kindLabel, name, id, reason);
+        return;
+      }
+      if (state.dryRun) {
+        state.stats.planned++;
+        console.log(`[DRY RUN] 招待対象: ${label}`);
+        recordSheetLog(state, 'DRY RUN 招待対象', kindLabel, name, id, '');
+        return;
+      }
+      driveApi().Permissions.create(
+        { role: 'writer', type: 'user', emailAddress: state.newOwnerEmail, pendingOwner: true },
+        id
+      );
+      state.stats.invited++;
+      console.log(`招待済み: ${label}`);
+      recordSheetLog(state, '招待済み', kindLabel, name, id, '受信側で「承諾」の実行が必要');
+      return;
+    }
+
+    // 直接譲渡(Workspace 同一ドメイン向け): setOwner による即時譲渡。
     if (state.dryRun) {
       state.stats.planned++;
       console.log(`[DRY RUN] 譲渡対象: ${label}`);
@@ -267,13 +335,18 @@ function finishTransfer(state: TransferState): void {
   deleteResumeTriggers();
   logProgress(state, 'すべての処理が完了しました');
   const s = state.stats;
+  const doneLabel = state.dryRun
+    ? `${state.method === 'invite' ? '招待' : '譲渡'}対象 ${s.planned} 件`
+    : state.method === 'invite'
+      ? `招待済み ${s.invited} 件 / 対象外 ${s.skippedUnsupported} 件`
+      : `譲渡済み ${s.transferred} 件`;
   recordSheetLog(
     state,
     'サマリ',
     '-',
     'すべての処理が完了しました',
     '',
-    `走査 ${s.scanned} 件 / ${state.dryRun ? `譲渡対象 ${s.planned}` : `譲渡済み ${s.transferred}`} 件 / エラー ${s.errors} 件`
+    `走査 ${s.scanned} 件 / ${doneLabel} / エラー ${s.errors} 件`
   );
   if (state.strategy === 'search' && !state.dryRun) {
     console.log(
@@ -349,11 +422,20 @@ function describeOwnedItems(): string {
 /** 開始時の告知ログ */
 function logStartBanner(state: TransferState): void {
   const mode = state.strategy === 'tree' ? 'ツリー走査' : '検索走査';
-  console.log(`所有権の一括譲渡を開始します: ${state.myEmail} → ${state.newOwnerEmail}(${mode})`);
+  const methodLabel = state.method === 'invite' ? '招待方式' : '直接譲渡';
+  console.log(
+    `所有権の一括譲渡を開始します: ${state.myEmail} → ${state.newOwnerEmail}(${mode} / ${methodLabel})`
+  );
+  if (state.method === 'invite') {
+    console.log(
+      '招待方式: Google ネイティブ形式のファイルのみを pendingOwner で招待します。' +
+        'フォルダ・非ネイティブ形式は対象外です。受信側での「承諾」が必要です。'
+    );
+  }
   if (state.dryRun) {
-    console.log('[DRY RUN] 実際の譲渡は行いません。対象の列挙とログ出力のみ行います。');
+    console.log('[DRY RUN] 実際の譲渡・招待は行いません。対象の列挙とログ出力のみ行います。');
   } else {
-    console.warn('本番モードです。所有権の譲渡を実際に実行します。');
+    console.warn('本番モードです。所有権の譲渡(または招待)を実際に実行します。');
   }
 }
 
@@ -365,16 +447,26 @@ function logProgress(state: TransferState, headline: string): void {
 /** 進捗・結果のサマリを整形する(ログ出力とシート UI のダイアログで共用) */
 function formatProgress(state: TransferState, headline: string): string {
   const s = state.stats;
+  const methodLabel = state.method === 'invite' ? '招待方式' : '直接譲渡';
   const lines = [
     `=== ${headline} ===`,
-    `モード: ${state.strategy === 'tree' ? 'ツリー走査' : '検索走査'}${state.dryRun ? ' (DRY RUN)' : ''}`,
+    `モード: ${state.strategy === 'tree' ? 'ツリー走査' : '検索走査'} / ${methodLabel}${state.dryRun ? ' (DRY RUN)' : ''}`,
     `譲渡先: ${state.newOwnerEmail}`,
     `バッチ回数: ${state.batchCount}`,
     `走査済み: ${s.scanned} 件`,
-    state.dryRun ? `譲渡対象 (DRY RUN): ${s.planned} 件` : `譲渡済み: ${s.transferred} 件`,
-    `スキップ(自分の所有物でない): ${s.skippedNotOwned} 件`,
-    `エラー: ${s.errors} 件`,
   ];
+  if (state.dryRun) {
+    lines.push(`${state.method === 'invite' ? '招待' : '譲渡'}対象 (DRY RUN): ${s.planned} 件`);
+  } else if (state.method === 'invite') {
+    lines.push(`招待済み: ${s.invited} 件`);
+  } else {
+    lines.push(`譲渡済み: ${s.transferred} 件`);
+  }
+  lines.push(`スキップ(自分の所有物でない): ${s.skippedNotOwned} 件`);
+  if (state.method === 'invite') {
+    lines.push(`対象外(フォルダ・非ネイティブ形式): ${s.skippedUnsupported} 件`);
+  }
+  lines.push(`エラー: ${s.errors} 件`);
   if (state.strategy === 'tree') {
     lines.push(`未処理のフォルダキュー: ${state.folderQueue.length} 件`);
   }

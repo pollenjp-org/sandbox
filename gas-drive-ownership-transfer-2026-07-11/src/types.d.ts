@@ -9,6 +9,15 @@
 /** 走査戦略の種別。tree = フォルダツリーを再帰的に走査 / search = 所有物を Drive 全体から検索 */
 type TransferStrategy = 'tree' | 'search';
 
+/**
+ * 譲渡方式。
+ * - direct: DriveApp.setOwner() による即時譲渡。Google Workspace の同一ドメイン間向け。
+ * - invite: Drive API v3 の pendingOwner による「招待 → 相手が承諾」の 2 段階。個人アカウント間向け。
+ *   個人アカウントで移転できるのは Google ネイティブ形式(ドキュメント/スプレッドシート等)のファイルのみで、
+ *   フォルダや非ネイティブ形式(PDF/Office 等)は対象外。
+ */
+type TransferMethod = 'direct' | 'invite';
+
 /** DriveApp のファイルとフォルダをまとめて扱うための型(どちらも getOwner / setOwner を持つ) */
 type DriveItem = GoogleAppsScript.Drive.File | GoogleAppsScript.Drive.Folder;
 
@@ -37,6 +46,8 @@ interface TransferStartOptions {
   rootFolderId: string;
   /** DRY RUN かどうか */
   dryRun: boolean;
+  /** 譲渡方式(direct = 即時譲渡 / invite = 招待方式) */
+  method: TransferMethod;
   /** 最初のバッチの時間予算(ミリ秒)。メニューのダイアログを素早く返すために短くする */
   maxRuntimeMs?: number;
 }
@@ -45,13 +56,17 @@ interface TransferStartOptions {
 interface TransferStats {
   /** 走査したアイテムの総数 */
   scanned: number;
-  /** 実際に所有権を譲渡した数 */
+  /** 実際に所有権を譲渡した数(direct 方式) */
   transferred: number;
-  /** DRY RUN で「譲渡対象」と判定した数 */
+  /** 招待方式で pendingOwner の招待を送った数(invite 方式) */
+  invited: number;
+  /** DRY RUN で「譲渡対象/招待対象」と判定した数 */
   planned: number;
   /** 自分の所有物ではないためスキップした数 */
   skippedNotOwned: number;
-  /** 譲渡に失敗した数 */
+  /** 招待方式で移転できない種別(フォルダ・非ネイティブ形式)のためスキップした数 */
+  skippedUnsupported: number;
+  /** 譲渡・招待に失敗した数 */
   errors: number;
 }
 
@@ -73,6 +88,8 @@ interface TransferState {
   /** 譲渡先のメールアドレス(開始時点の「設定」シートの値のスナップショット) */
   newOwnerEmail: string;
   dryRun: boolean;
+  /** 譲渡方式(direct = 即時譲渡 / invite = 招待方式)。開始時点の「設定」シートの値のスナップショット */
+  method: TransferMethod;
   includeFolders: boolean;
   /** 開始時刻(ISO 8601 形式) */
   startedAt: string;
@@ -87,4 +104,28 @@ interface TransferState {
   /** 検索走査: イテレータの継続トークン */
   searchToken: string | null;
   stats: TransferStats;
+}
+
+/** 招待方式の承諾対象(台帳の「招待済み」行から取り出した 1 ファイル) */
+interface InviteCandidate {
+  /** ファイル ID */
+  id: string;
+  /** ファイル名(台帳に記録済みの値。ログ表示用) */
+  name: string;
+}
+
+/** 招待方式の一括承諾(accept.ts)の実行結果 */
+interface AcceptResult {
+  /** 承諾対象として台帳から抽出した件数 */
+  total: number;
+  /** 実際に承諾(所有権を受領)した件数 */
+  accepted: number;
+  /** 既に所有者・招待が見つからない等でスキップした件数 */
+  skipped: number;
+  /** 承諾に失敗した件数 */
+  errors: number;
+  /** 時間制限で処理しきれず残った件数 */
+  remaining: number;
+  /** 台帳へ追記するログ行 */
+  rows: (string | Date)[][];
 }

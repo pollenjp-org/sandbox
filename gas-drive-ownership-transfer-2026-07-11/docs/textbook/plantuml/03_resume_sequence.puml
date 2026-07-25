@@ -1,0 +1,37 @@
+@startuml 03_resume_sequence
+title 中断と自動再開のシーケンス
+skinparam defaultFontName "Noto Sans CJK JP"
+skinparam shadowing false
+
+actor "利用者" as user
+participant "sheet.ts\n(メニューと確認ダイアログ)" as main
+participant "transfer.ts\n(中核ロジック)" as batch
+participant "state.ts\n(ユーザープロパティ)" as state
+participant "DriveApp\n(Google Drive)" as drive
+participant "時間主導トリガー" as trig
+
+user -> main : メニュー「開始(ツリー走査)」\n(確認ダイアログで内容を承認)
+main -> main : 「設定」シートから\n譲渡先・対象フォルダを読み取り
+main -> batch : 開始を依頼(最初のバッチは 45 秒予算)
+batch -> state : 未完了の状態が残っていないか確認
+loop ファイル / フォルダを順に処理
+  batch -> drive : 次のアイテムを取得
+  batch -> drive : 自分の所有物なら setOwner()
+end
+note over batch : 時間予算を使い切った
+batch -> state : 進捗(キュー・継続トークン)を保存
+batch -> trig : 60 秒後の再開トリガーを作成
+batch -> main : 台帳(譲渡ログ)へまとめて記録
+main --> user : ダイアログで「開始しました」\n(以降は自動継続)
+...約 60 秒後...
+trig -> batch : resumeTransfer() を自動起動
+batch -> trig : 発火済みトリガーを掃除
+batch -> state : 進捗を復元
+loop 残りを処理(1 バッチ 4.5 分)
+  batch -> drive : 走査・譲渡のつづき
+end
+batch -> state : 完了 → 状態をクリア
+batch -> trig : 再開トリガーを削除
+batch -> main : 台帳へ記録(サマリ行を含む)
+note over user : 進捗はメニュー「進捗を確認」と\n「譲渡ログ」シートでいつでも確認できる
+@enduml

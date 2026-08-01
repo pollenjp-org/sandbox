@@ -125,7 +125,7 @@ const SETTING_DEFS: SettingDef[] = [
     key: 'LEAVE_BREADCRUMB',
     label: '移動元に案内ファイル(.txt)を残す',
     description:
-      '各フォルダの中身を移動したあと、移動元フォルダに「このフォルダの中身は移動しました.txt」を作り、移行先フォルダのリンクを記載する。フォルダ自体は移動できないため、旧フォルダを見た人に移行先を知らせる目印になる。',
+      '各フォルダの中身を移動したあと、移動元フォルダに「このフォルダの中身は移動しました.txt」を作り、移行先フォルダのリンクと移動した全ファイルの URL を記載する。フォルダ自体は移動できず URL が変わってしまうため、旧フォルダを見た人が目的のファイルへ辿り着ける目印になる。',
     type: 'boolean',
     default: true,
   },
@@ -215,6 +215,28 @@ const DRY_RUN_ID_PREFIX = 'dryrun:';
 const BREADCRUMB_NAME = 'このフォルダの中身は移動しました.txt';
 
 /**
+ * 案内ファイルの「ファイル 1 件」行に付ける状態ラベル。
+ * 案内ファイルは再実行のたびに読み戻してマージするため、
+ * ここの文字列を変えると過去に作った案内の記録を引き継げなくなる。
+ */
+const BC_MOVED = '移動';
+const BC_COPIED = 'コピー';
+const BC_SKIPPED = '未移動(他人所有)';
+const BC_FAILED = '未移動(失敗)';
+
+/**
+ * 案内ファイルのファイル行の書式。人が読める見た目のまま、再実行時に
+ * 読み戻せるよう決め打ちのパターンにしている。
+ *   `- [移動] 提案書.docx — https://drive.google.com/open?id=xxxx`
+ */
+const BREADCRUMB_ENTRY_RE = /^- \[([^\]]+)\] (.+?) — (https?:\/\/\S+)/;
+/** コピー救済行に併記した「移動元に残った元ファイル」の URL を読み戻すパターン */
+const BREADCRUMB_ORIGINAL_RE = /旧: (https?:\/\/\S+)/;
+
+/** 案内ファイルに列挙するファイル数の上限 (巨大フォルダでの暴走よけ) */
+const MAX_BREADCRUMB_ENTRIES = 5000;
+
+/**
  * 失敗の分類。進捗シートの内訳と「失敗一覧」シートの「種別」列に使う。
  * ここに並べた順で進捗シートに内訳行が出る (件数 0 でも常に表示)。
  * ※他人所有ファイルは「失敗」ではなく「スキップ」として別集計する
@@ -256,6 +278,20 @@ interface FailureRecord {
   name: string;
   path: string;
   reason: string;
+}
+
+/**
+ * 移動元フォルダに残す案内ファイルへ 1 行ずつ書き出す、ファイル 1 件の記録。
+ * 「どのファイルがどこへ行ったか」を旧フォルダを見た人が辿れるようにする。
+ */
+interface BreadcrumbEntry {
+  /** 今このファイルを指す ID。移動なら移行前と同じ / コピー救済なら新しい ID */
+  id: string;
+  name: string;
+  /** BC_MOVED / BC_COPIED / BC_SKIPPED / BC_FAILED のいずれか */
+  status: string;
+  /** コピー救済のときだけ設定される、移動元に残った元ファイルの ID */
+  originalId?: string;
 }
 
 /** 所有権を持たない等の理由で「処理せずスキップ」したファイルの記録 */
@@ -674,25 +710,37 @@ function runLoop_(state: MigrationState): void {
 function processFolder_(task: FolderTask, state: MigrationState, deadline: number): boolean {
   Logger.log(`📁 処理中: ${task.path}`);
 
+  /** このフォルダにあった各ファイルの行き先 (案内ファイルに書き出す) */
+  const entries: BreadcrumbEntry[] = [];
+
   const files = listChildren_(task.src, 'files');
   for (const file of files) {
-    if (Date.now() > deadline) return false;
+    if (Date.now() > deadline) {
+      // 中断前にここまでの記録を案内ファイルへ書き出す。再開時は残りのファイル
+      // だけを処理するため、ここで書いておかないと前半の記録が失われる
+      // (案内ファイルは書き出しのたびに既存の記録とマージされる)。
+      leaveBreadcrumb_(task, state, entries, false);
+      return false;
+    }
     // 自分で残した案内ファイルは移行先へ移動しない (目印として移動元に残す)
     if (file.name === BREADCRUMB_NAME) continue;
-    moveOneFile_(file, task, state);
+    entries.push(moveOneFile_(file, task, state));
   }
 
   const newTasks: FolderTask[] = [];
   const subfolders = listChildren_(task.src, 'folders');
   for (const sub of subfolders) {
-    if (Date.now() > deadline) return false;
+    if (Date.now() > deadline) {
+      leaveBreadcrumb_(task, state, entries, false);
+      return false;
+    }
     const childPath = `${task.path}/${sub.name}`;
     const dstId = ensureFolder_(sub.name, task.dst, state, childPath);
     newTasks.push({ src: sub.id, dst: dstId, path: childPath });
   }
 
   // このフォルダの中身を移し終えたので、移動元に移行先への案内ファイルを残す
-  leaveBreadcrumb_(task, state);
+  leaveBreadcrumb_(task, state, entries, true);
 
   for (const t of newTasks) state.queue.push(t);
   state.stats.foldersVisited += 1;
@@ -833,8 +881,14 @@ function ensureFolder_(
  *   移動元にそのまま残す (誰が所有者かは「スキップ一覧」シートで確認できる)。
  *
  * 自分が所有するファイルのみ移動する。移動に失敗した場合は設定に従いコピーで救済する。
+ *
+ * @returns このファイルがどうなったかの記録 (移動元に残す案内ファイルに書き出す)
  */
-function moveOneFile_(file: ChildItem, task: FolderTask, state: MigrationState): void {
+function moveOneFile_(
+  file: ChildItem,
+  task: FolderTask,
+  state: MigrationState
+): BreadcrumbEntry {
   const cfg = cfg_();
   const label = `${task.path}/${file.name}`;
 
@@ -847,13 +901,13 @@ function moveOneFile_(file: ChildItem, task: FolderTask, state: MigrationState):
       ownerEmail: file.ownerEmail,
       reason: SKIP_REASON_NOT_OWNED,
     });
-    return;
+    return { id: file.id, name: file.name, status: BC_SKIPPED };
   }
 
   if (state.dryRun) {
     state.stats.filesMoved += 1;
     Logger.log(`  [DRY_RUN] 移動予定: ${label}`);
-    return;
+    return { id: file.id, name: file.name, status: BC_MOVED };
   }
 
   try {
@@ -867,7 +921,8 @@ function moveOneFile_(file: ChildItem, task: FolderTask, state: MigrationState):
     );
     state.stats.filesMoved += 1;
     Logger.log(`  ✅ 移動: ${label}`);
-    return;
+    // 移動ではファイル ID が変わらないため、URL は移行前と同じものが使える
+    return { id: file.id, name: file.name, status: BC_MOVED };
   } catch (moveErr) {
     if (!cfg.COPY_FALLBACK) {
       recordFailure_(state, {
@@ -877,11 +932,11 @@ function moveOneFile_(file: ChildItem, task: FolderTask, state: MigrationState):
         path: task.path,
         reason: `移動失敗: ${errorMessage_(moveErr)}`,
       });
-      return;
+      return { id: file.id, name: file.name, status: BC_FAILED };
     }
 
     try {
-      withRetry_(`ファイルコピー: ${label}`, () =>
+      const copied = withRetry_(`ファイルコピー: ${label}`, () =>
         Drive.Files.copy({ name: file.name, parents: [task.dst] }, file.id, {
           supportsAllDrives: true,
           fields: 'id',
@@ -896,6 +951,14 @@ function moveOneFile_(file: ChildItem, task: FolderTask, state: MigrationState):
         );
         Logger.log(`  🗑 元ファイルをゴミ箱へ: ${label}`);
       }
+      // コピーは別ファイルなので ID (= URL) が変わる。旧 URL も併記できるよう
+      // 元ファイルの ID を残す
+      return {
+        id: (copied.id as string) || file.id,
+        name: file.name,
+        status: BC_COPIED,
+        originalId: file.id,
+      };
     } catch (copyErr) {
       recordFailure_(state, {
         category: 'MOVE_AND_COPY_FAILED',
@@ -904,60 +967,51 @@ function moveOneFile_(file: ChildItem, task: FolderTask, state: MigrationState):
         path: task.path,
         reason: `移動失敗: ${errorMessage_(moveErr)} / コピーも失敗: ${errorMessage_(copyErr)}`,
       });
+      return { id: file.id, name: file.name, status: BC_FAILED };
     }
   }
 }
 
 /**
  * 移動元フォルダに「このフォルダの中身は移動しました.txt」を残す。
- * 中身に移行先フォルダへのリンクを記載する。フォルダ自体はドメイン間で移動
- * できないため、旧フォルダを開いた人に移行先を知らせる目印になる。
- * 冪等: 既存の案内ファイルがあれば内容を更新し、なければ新規作成する。
+ * 移行先フォルダのリンクに加えて、**このフォルダにあった全ファイルの URL**
+ * を 1 件ずつ記載する。フォルダは作り直しになるためフォルダの URL は必ず
+ * 変わってしまうが、移動したファイルは ID が変わらないので、ファイル単位の
+ * URL があれば旧フォルダを見た人がそのまま目的のファイルへ辿り着ける。
+ *
+ * 冪等: 既存の案内ファイルがあれば**既存の記録を読み戻してマージ**する。
+ * 中断・再開や再実行では「残っているファイルだけ」が処理されるため、
+ * マージしないと以前に移動したファイルの記録が消えてしまう。
+ *
+ * @param entries 今回の処理で判明した各ファイルの行き先
+ * @param complete このフォルダの処理を最後までやり切ったか (時間切れなら false)
  */
-function leaveBreadcrumb_(task: FolderTask, state: MigrationState): void {
+function leaveBreadcrumb_(
+  task: FolderTask,
+  state: MigrationState,
+  entries: BreadcrumbEntry[],
+  complete: boolean
+): void {
   if (!cfg_().LEAVE_BREADCRUMB) return;
 
-  // 移行先がまだ実体を持たない (DRY_RUN の仮 ID) 場合はリンクを確定できない
-  const isDryDst = task.dst.indexOf(DRY_RUN_ID_PREFIX) === 0;
-  const destLink = isDryDst
-    ? '(DRY_RUN のため未確定)'
-    : `https://drive.google.com/drive/folders/${task.dst}`;
-
-  const content = [
-    'このフォルダの中身は別の場所へ移動しました。',
-    '',
-    '▼ 移行先フォルダ',
-    destLink,
-    '',
-    `移行日時: ${formatNow_()}`,
-    '',
-    '※このファイルは移行ツールが自動生成した案内です。',
-    '※ドメインをまたぐ制約でフォルダ自体は移動できないため、',
-    '  中身のファイルのみを移行先へ移動し、この案内を移動元に残しています。',
-  ].join('\n');
-
   if (state.dryRun) {
-    Logger.log(`  [DRY_RUN] 案内ファイル作成予定: ${task.path}/${BREADCRUMB_NAME}`);
+    Logger.log(
+      `  [DRY_RUN] 案内ファイル作成予定: ${task.path}/${BREADCRUMB_NAME} (ファイル ${entries.length} 件を記載)`
+    );
     return;
   }
 
   try {
-    const q =
-      `'${task.src}' in parents and trashed = false and name = '${escapeForQuery_(BREADCRUMB_NAME)}'`;
-    const found: DriveV3.FileList = withRetry_('案内ファイルの検索', () =>
-      Drive.Files.list({
-        q: q,
-        pageSize: 1,
-        fields: 'files(id)',
-        includeItemsFromAllDrives: true,
-        supportsAllDrives: true,
-      })
+    const existingId = findBreadcrumbId_(task.src);
+    const merged = mergeBreadcrumbEntries_(
+      existingId ? readBreadcrumbEntries_(existingId) : [],
+      entries
     );
+    const content = buildBreadcrumbContent_(task, merged, complete);
     const blob = Utilities.newBlob(content, 'text/plain', BREADCRUMB_NAME);
-    const existing = (found.files || [])[0];
-    if (existing && existing.id) {
+    if (existingId) {
       withRetry_('案内ファイルの更新', () =>
-        Drive.Files.update({}, existing.id as string, blob, { supportsAllDrives: true })
+        Drive.Files.update({}, existingId, blob, { supportsAllDrives: true })
       );
     } else {
       withRetry_('案内ファイルの作成', () =>
@@ -968,11 +1022,164 @@ function leaveBreadcrumb_(task: FolderTask, state: MigrationState): void {
         )
       );
     }
-    Logger.log(`  📝 案内ファイルを配置: ${task.path}/${BREADCRUMB_NAME}`);
+    Logger.log(
+      `  📝 案内ファイルを配置: ${task.path}/${BREADCRUMB_NAME} (ファイル ${merged.length} 件を記載)`
+    );
   } catch (e) {
     // 案内ファイルは補助的なものなので、失敗しても移行本体は止めない
     Logger.log(`  ⚠ 案内ファイルの配置に失敗 (無視して続行): ${task.path} — ${errorMessage_(e)}`);
   }
+}
+
+/** 移動元フォルダにある既存の案内ファイルの ID を返す (なければ null)。 */
+function findBreadcrumbId_(srcFolderId: string): string | null {
+  const q =
+    `'${srcFolderId}' in parents and trashed = false and name = '${escapeForQuery_(BREADCRUMB_NAME)}'`;
+  const found: DriveV3.FileList = withRetry_('案内ファイルの検索', () =>
+    Drive.Files.list({
+      q: q,
+      pageSize: 1,
+      fields: 'files(id)',
+      includeItemsFromAllDrives: true,
+      supportsAllDrives: true,
+    })
+  );
+  const hit = (found.files || [])[0];
+  return hit && hit.id ? hit.id : null;
+}
+
+/**
+ * 既存の案内ファイルからファイル行を読み戻す。
+ * 読めない/書式が違う行は黙って無視する (案内は補助情報なので、
+ * 読み戻しに失敗しても今回分だけ書ければ十分)。
+ *
+ * ※本文の読み出しだけは組み込みの DriveApp を使う。高度なサービス Drive (v3)
+ *   はメディア本文のダウンロードを素直に扱えないため。必要な OAuth スコープ
+ *   (.../auth/drive) は appsscript.json で既に要求済み。
+ */
+function readBreadcrumbEntries_(fileId: string): BreadcrumbEntry[] {
+  let text: string;
+  try {
+    text = DriveApp.getFileById(fileId).getBlob().getDataAsString('UTF-8');
+  } catch (e) {
+    Logger.log(`  ⚠ 既存の案内ファイルを読めませんでした (今回分だけ書きます): ${errorMessage_(e)}`);
+    return [];
+  }
+
+  const entries: BreadcrumbEntry[] = [];
+  const lines = text.split('\n');
+  for (const line of lines) {
+    const m = BREADCRUMB_ENTRY_RE.exec(line);
+    if (!m) continue;
+    const id = extractDriveId_(m[3]);
+    if (!id) continue;
+    const entry: BreadcrumbEntry = { id: id, name: m[2], status: m[1] };
+    const orig = BREADCRUMB_ORIGINAL_RE.exec(line);
+    const originalId = orig ? extractDriveId_(orig[1]) : null;
+    if (originalId) entry.originalId = originalId;
+    entries.push(entry);
+  }
+  return entries;
+}
+
+/**
+ * 既存の記録に今回分を重ねる。同じファイル (ID が同じ) は今回の結果で上書きし、
+ * 記載順は「先に記録された順」を保つ。
+ */
+function mergeBreadcrumbEntries_(
+  previous: BreadcrumbEntry[],
+  current: BreadcrumbEntry[]
+): BreadcrumbEntry[] {
+  const merged: BreadcrumbEntry[] = [];
+  const indexById: { [id: string]: number } = {};
+  const all = previous.concat(current);
+  for (const entry of all) {
+    if (!entry.id) continue;
+    const at = indexById[entry.id];
+    if (at === undefined) {
+      indexById[entry.id] = merged.length;
+      merged.push(entry);
+    } else {
+      merged[at] = entry;
+    }
+  }
+  return merged;
+}
+
+/** 案内ファイルの本文を組み立てる。 */
+function buildBreadcrumbContent_(
+  task: FolderTask,
+  entries: BreadcrumbEntry[],
+  complete: boolean
+): string {
+  // 移行先がまだ実体を持たない (DRY_RUN の仮 ID) 場合はリンクを確定できない
+  const isDryDst = task.dst.indexOf(DRY_RUN_ID_PREFIX) === 0;
+  const destLink = isDryDst ? '(DRY_RUN のため未確定)' : folderUrl_(task.dst);
+
+  let moved = 0;
+  let copied = 0;
+  let stayed = 0;
+  for (const e of entries) {
+    if (e.status === BC_MOVED) moved += 1;
+    else if (e.status === BC_COPIED) copied += 1;
+    else stayed += 1;
+  }
+
+  const headline = !complete
+    ? 'このフォルダは移行ツールで処理中です（下記は現時点までの記録です）。'
+    : entries.length === 0
+      ? 'このフォルダの直下にファイルはありませんでした（サブフォルダは移行先に作り直されています）。'
+      : stayed > 0
+        ? `このフォルダの中身を別の場所へ移動しました（${stayed} 件はこのフォルダに残っています）。`
+        : 'このフォルダの中身は別の場所へ移動しました。';
+
+  const lines = [
+    headline,
+    '',
+    '▼ 移行先フォルダ',
+    destLink,
+    '',
+  ];
+
+  const shown = entries.slice(0, MAX_BREADCRUMB_ENTRIES);
+  lines.push(
+    `▼ このフォルダにあったファイル ${entries.length} 件` +
+      `（移動 ${moved} / コピー ${copied} / このフォルダに残り ${stayed}）`
+  );
+  if (entries.length === 0) {
+    lines.push('(なし)');
+  }
+  for (const e of shown) {
+    const original =
+      e.status === BC_COPIED && e.originalId ? ` （旧: ${fileUrl_(e.originalId)}）` : '';
+    lines.push(`- [${e.status}] ${e.name} — ${fileUrl_(e.id)}${original}`);
+  }
+  if (entries.length > shown.length) {
+    lines.push(
+      `- (ファイルが多いため、残り ${entries.length - shown.length} 件は省略しました。` +
+        '全件は移行ツールのスプレッドシートと実行ログで確認できます)'
+    );
+  }
+
+  lines.push(
+    '',
+    '▼ URL について',
+    '・[移動] のファイルは ID が変わらないため、上記 URL は移行前と同じです。',
+    '  以前のブックマークや他ドキュメントからのリンクはそのまま使えます。',
+    '・[コピー] のファイルは移動できずコピーで救済したもので、ID が変わります。',
+    '  併記した「旧」の URL は移動元に残った元ファイルを指したままです。',
+    '・フォルダは移動できず作り直しているため、フォルダの URL は必ず変わります。',
+    '  （このファイルに全ファイルの URL を書いているのはそのためです）',
+    '・URL が同じでも、移行後は移行先の共有ドライブのポリシーが優先されます。',
+    '  権限の無い人は開けないので、その場合は移行先組織の管理者に依頼してください。',
+    '',
+    `この案内の更新日時: ${formatNow_()}`,
+    '',
+    '※このファイルは移行ツールが自動生成した案内です。',
+    '※ドメインをまたぐ制約でフォルダ自体は移動できないため、',
+    '  中身のファイルのみを移行先へ移動し、この案内を移動元に残しています。'
+  );
+  return lines.join('\n');
 }
 
 /** 空フォルダを深い階層から順にゴミ箱へ入れる (後片付け)。 */
@@ -1561,6 +1768,29 @@ function formatNow_(): string {
 
 function escapeForQuery_(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+/** フォルダ ID から Drive で開ける URL を作る。 */
+function folderUrl_(folderId: string): string {
+  return `https://drive.google.com/drive/folders/${folderId}`;
+}
+
+/**
+ * ファイル ID から Drive で開ける URL を作る。
+ * `open?id=` 形式にすると Google ドキュメント/スプレッドシートなどの
+ * ネイティブ形式でも通常のファイルでも同じ書き方で開ける (種類ごとの
+ * URL へ Drive 側がリダイレクトしてくれる)。
+ */
+function fileUrl_(fileId: string): string {
+  return `https://drive.google.com/open?id=${fileId}`;
+}
+
+/** 案内ファイルに書かれた URL から Drive のファイル/フォルダ ID を取り出す。 */
+function extractDriveId_(url: string): string | null {
+  const byQuery = /[?&]id=([A-Za-z0-9_-]+)/.exec(url);
+  if (byQuery) return byQuery[1];
+  const byPath = /\/(?:d|folders)\/([A-Za-z0-9_-]+)/.exec(url);
+  return byPath ? byPath[1] : null;
 }
 
 function recordFailure_(state: MigrationState, failure: FailureRecord): void {

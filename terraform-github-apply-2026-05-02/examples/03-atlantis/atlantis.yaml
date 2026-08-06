@@ -1,0 +1,44 @@
+version: 3
+automerge: false
+parallel_plan: true
+parallel_apply: false  # apply は直列化して state ロック衝突を避ける
+
+projects:
+  - name: network-prd
+    dir: terraform/network
+    workspace: prd
+    workflow: prd
+    apply_requirements: [approved, mergeable, undiverged]
+    autoplan:
+      when_modified: ["*.tf", "../modules/**/*.tf", "prd.tfvars"]
+      enabled: true
+
+  - name: network-dev
+    dir: terraform/network
+    workspace: dev
+    workflow: dev
+    apply_requirements: [mergeable]
+    autoplan:
+      when_modified: ["*.tf", "../modules/**/*.tf", "dev.tfvars"]
+
+workflows:
+  prd:
+    plan:
+      steps:
+        - init
+        - run: tflint
+        - run: tfsec .
+        - plan:
+            extra_args: ["-var-file=prd.tfvars"]
+    apply:
+      steps:
+        - apply
+  dev:
+    plan:
+      steps:
+        - init
+        - plan:
+            extra_args: ["-var-file=dev.tfvars"]
+    apply:
+      steps:
+        - apply

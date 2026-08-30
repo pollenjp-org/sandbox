@@ -1,0 +1,16 @@
+# Terraform ファイル
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# 秘密情報
+terraform.tfvars
+!terraform.tfvars.example
+
+# ローカルファイル
+.DS_Store
+*.swp
+*.swo
+*~
+.idea/

@@ -1,0 +1,8 @@
+{
+  "scriptId": "YOUR_SCRIPT_ID_HERE",
+  "projectIdSettings": {
+    "projectId": "YOUR_GCP_PROJECT_ID_HERE"
+  },
+  "rootDir": "./",
+  "fileExtension": "gs"
+}

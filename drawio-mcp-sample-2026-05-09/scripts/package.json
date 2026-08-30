@@ -1,0 +1,9 @@
+{
+  "name": "drawio-mcp-sample-scripts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@xmldom/xmldom": "^0.9.8"
+  }
+}

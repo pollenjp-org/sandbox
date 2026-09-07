@@ -1,0 +1,21 @@
+// 06: caveat で「条件付きの関係」を表す。
+// ここでは「期限付きの共有リンク」を作る。
+
+definition user {}
+
+// caveat は CEL (Common Expression Language) の式。
+// 引数はチェック時の context と relationship に保存した context を
+// マージして埋まる。全部埋まって true になったときだけ関係が有効になる。
+caveat not_expired(current_time timestamp, expires_at timestamp) {
+    current_time < expires_at
+}
+
+definition document {
+    relation owner: user
+
+    // `with not_expired` = この relation の relationship には
+    // not_expired の条件を付けられる (付けることを強制はしない設計も選べる)
+    relation shared_viewer: user with not_expired
+
+    permission view = owner + shared_viewer
+}

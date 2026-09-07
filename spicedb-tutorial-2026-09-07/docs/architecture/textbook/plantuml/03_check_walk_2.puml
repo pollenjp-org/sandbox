@@ -1,0 +1,23 @@
+@startuml
+title check の歩み 2/3 — arrow が新しいサブ問題を作る
+left to right direction
+
+actor "user:alice" as alice
+actor "user:bob" as bob
+rectangle "group:eng" as eng
+rectangle "folder:root" as root
+rectangle "folder:eng-docs" as engdocs #FFF2B2
+rectangle "document:design" as design
+
+design -[#DAA520,bold]-> engdocs : parent
+engdocs --> root : parent
+root --> alice : owner
+engdocs --> eng : viewer\n(#member)
+eng --> bob : member
+
+note bottom of design
+  直接の viewer に bob はいない。
+  parent->view が「folder:eng-docs を
+  view できるか?」という新しいサブ問題になる
+end note
+@enduml

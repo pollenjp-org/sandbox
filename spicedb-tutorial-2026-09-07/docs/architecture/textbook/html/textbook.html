@@ -1,0 +1,1507 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SpiceDB を一から — textbook (HTML 版)</title>
+<style>
+  :root {
+    --ink: #22252a;
+    --sub: #5b6470;
+    --line: #dde2e8;
+    --bg: #ffffff;
+    --panel: #f6f8fa;
+    --accent: #4f46e5;
+    --ok: #1a7f37;
+    --ok-bg: #e6f4ea;
+    --warn: #b42318;
+    --warn-bg: #fdecea;
+    --mark: #b8860b;
+    --mark-bg: #fff2b2;
+    --code-bg: #f0f2f5;
+    --max: 880px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Hiragino Sans", "Noto Sans CJK JP", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+    line-height: 1.85; font-size: 15.5px;
+  }
+  code, pre {
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Noto Sans Mono CJK JP", monospace;
+    font-size: .92em;
+  }
+  code { background: var(--code-bg); padding: .1em .4em; border-radius: 4px; }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px 14px; overflow-x: auto; line-height: 1.6;
+  }
+  pre code { background: none; padding: 0; }
+
+  /* ---- レイアウト ---- */
+  .wrap { display: flex; min-height: 100vh; }
+  nav.side {
+    width: 250px; flex: none; border-right: 1px solid var(--line);
+    padding: 22px 16px; position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    background: var(--panel);
+  }
+  nav.side h1 { font-size: 15px; margin: 0 0 4px; }
+  nav.side .sub { color: var(--sub); font-size: 12px; margin-bottom: 14px; }
+  nav.side a {
+    display: block; color: var(--ink); text-decoration: none;
+    padding: 6px 10px; border-radius: 6px; font-size: 13.5px; margin: 1px 0;
+  }
+  nav.side a:hover { background: #eceff3; }
+  nav.side a.on { background: var(--accent); color: #fff; }
+  main { flex: 1; min-width: 0; }
+  .page { max-width: var(--max); margin: 0 auto; padding: 30px 34px 90px; }
+
+  h2.ch {
+    font-size: 24px; margin: 70px 0 6px; padding-top: 18px;
+    border-top: 3px solid var(--ink);
+  }
+  h2.ch:first-of-type { margin-top: 10px; border-top: none; padding-top: 0; }
+  h2 .no { color: var(--sub); font-weight: 600; margin-right: .5em; }
+  h3 { font-size: 18px; margin: 34px 0 8px; }
+  h4 { font-size: 15.5px; margin: 24px 0 6px; }
+  p { margin: 10px 0; }
+  .lead { color: var(--sub); margin: 0 0 18px; }
+
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 14.5px; }
+  th, td { border: 1px solid var(--line); padding: 7px 11px; text-align: left; vertical-align: top; }
+  th { background: var(--panel); font-weight: 600; }
+
+  details.term {
+    border: 1px solid var(--line); border-left: 4px solid var(--accent);
+    border-radius: 6px; margin: 10px 0; background: #fbfcfe;
+  }
+  details.term summary {
+    cursor: pointer; padding: 8px 12px; font-weight: 600; font-size: 14px;
+    color: var(--accent); list-style: none;
+  }
+  details.term summary::before { content: "▸ 用語: "; }
+  details[open].term summary::before { content: "▾ 用語: "; }
+  details.term .body { padding: 0 14px 10px; font-size: 14.5px; }
+
+  .callout { border-radius: 8px; padding: 12px 16px; margin: 14px 0; font-size: 14.5px; }
+  .callout.ok { background: var(--ok-bg); border: 1px solid #b7dfc3; }
+  .callout.warn { background: var(--warn-bg); border: 1px solid #f5c6c0; }
+  .callout.note { background: var(--mark-bg); border: 1px solid #e8d48a; }
+
+  .next { margin-top: 34px; }
+  .next a {
+    display: inline-block; text-decoration: none; color: var(--accent);
+    border: 1px solid var(--accent); border-radius: 999px; padding: 6px 18px; font-size: 14px;
+  }
+  .next a:hover { background: var(--accent); color: #fff; }
+
+  /* ---- ウィジェット ---- */
+  .widget {
+    border: 1px solid var(--line); border-radius: 10px; margin: 18px 0;
+    overflow: hidden; background: #fff;
+  }
+  .widget .head {
+    background: var(--panel); border-bottom: 1px solid var(--line);
+    padding: 8px 14px; font-weight: 600; font-size: 14px;
+  }
+  .widget .canvas { padding: 8px 10px 0; overflow-x: auto; }
+  .widget .narr {
+    min-height: 3.4em; padding: 8px 16px; font-size: 14.5px;
+    border-top: 1px dashed var(--line); background: #fbfcfe;
+  }
+  .widget .ctrl {
+    display: flex; gap: 8px; align-items: center; padding: 10px 14px 12px; flex-wrap: wrap;
+  }
+  .widget button {
+    font: inherit; font-size: 14px; padding: 5px 16px; border-radius: 6px;
+    border: 1px solid var(--accent); background: #fff; color: var(--accent); cursor: pointer;
+  }
+  .widget button:hover:enabled { background: var(--accent); color: #fff; }
+  .widget button:disabled { opacity: .35; cursor: default; }
+  .widget .step-ind { color: var(--sub); font-size: 13px; margin-left: auto; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+
+  svg text { font-family: inherit; font-size: 13px; fill: var(--ink); }
+  svg .nodebox { fill: #f2f4f7; stroke: #667085; rx: 6px; }
+  svg .nodebox.hl-q { fill: var(--mark-bg); stroke: var(--mark); stroke-width: 2; }
+  svg .nodebox.hl-ok { fill: var(--ok-bg); stroke: var(--ok); stroke-width: 2; }
+  svg .edge { stroke: #667085; fill: none; marker-end: url(#arr); }
+  svg .edge.hl-q { stroke: var(--mark); stroke-width: 2.4; marker-end: url(#arr-q); }
+  svg .edge.hl-ok { stroke: var(--ok); stroke-width: 2.6; marker-end: url(#arr-ok); }
+  svg .elabel { fill: var(--sub); font-size: 12px; }
+  svg .person { fill: #f2f4f7; stroke: #667085; }
+  svg .person.hl-ok { fill: var(--ok-bg); stroke: var(--ok); stroke-width: 2; }
+  svg .nodebox.hl-cache { fill: #dbeafe; stroke: #2563eb; stroke-width: 2.4; }
+
+  /* サブ問題キャッシュの表示欄 */
+  .cachebox {
+    margin: 8px 14px 4px; border: 1px dashed #94a3b8; border-radius: 8px;
+    padding: 8px 12px; font-size: 13.5px; background: #f8fafc;
+  }
+  .cachebox .cachehead { font-weight: 600; color: var(--sub); margin-bottom: 4px; font-size: 12.5px; }
+  .cachebox .entry {
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 12.5px; padding: 3px 8px; border-radius: 5px; display: inline-block;
+  }
+  .cachebox .entry.off { color: #98a2b3; }
+  .cachebox .entry.hit { background: #dbeafe; border: 1px solid #2563eb; color: #1e40af; font-weight: 600; }
+
+  /* シーケンス図ステッパー */
+  svg .lifehead { fill: #eef2f7; stroke: #667085; }
+  svg .lifeline { stroke: #cbd5e1; stroke-dasharray: 4 4; }
+  svg .band { fill: #f1f5f9; stroke: #e2e8f0; }
+  svg .bandlabel { font-weight: 600; fill: var(--sub); font-size: 12.5px; }
+  svg .msg { opacity: 0; }
+  svg .msg.shown { opacity: 1; }
+  svg .msg path { stroke: #475569; fill: none; marker-end: url(#arr); }
+  svg .msg.ret path { stroke-dasharray: 5 4; }
+  svg .msg text { font-size: 12.5px; }
+  svg .msg.cur path { stroke: var(--accent); stroke-width: 2.2; marker-end: url(#arr-cur); }
+  svg .msg.cur text { fill: var(--accent); font-weight: 600; }
+  svg .msg.tok path { stroke: var(--ok); stroke-width: 2; marker-end: url(#arr-tok); }
+  svg .msg.tok text { fill: var(--ok); font-weight: 600; }
+  svg .msg.bad path { stroke: var(--warn); stroke-width: 2; marker-end: url(#arr-bad); }
+  svg .msg.bad text { fill: var(--warn); font-weight: 600; }
+  svg .msg.good path { stroke: var(--ok); stroke-width: 2; marker-end: url(#arr-tok); }
+  svg .msg.good text { fill: var(--ok); font-weight: 600; }
+
+  /* 高水位トークンの水位図 */
+  svg .chip { opacity: 0; }
+  svg .chip.shown { opacity: 1; }
+  svg .chip rect { stroke-width: 1.4; }
+  svg .chip.cur rect { stroke-width: 3; }
+  svg .chip text { font-size: 12.5px; font-weight: 600; }
+  svg .chip line { stroke-dasharray: 3 3; }
+  svg .hwaxis { stroke: #475569; stroke-width: 1.6; }
+  svg .hwtick { stroke: #475569; }
+  svg .hwtick-label { font-size: 12.5px; font-weight: 600; }
+  svg .hwtick-event { font-size: 11.5px; fill: var(--sub); }
+  svg .hwband { opacity: 0; }
+  svg .hwband.on-blue { opacity: 1; fill: #2563eb; fill-opacity: .08; stroke: #2563eb; stroke-dasharray: 4 3; }
+  svg .hwband.on-green { opacity: 1; fill: #1a7f37; fill-opacity: .10; stroke: #1a7f37; stroke-dasharray: 4 3; }
+
+  /* new enemy タイムライン */
+  .timeline { list-style: none; margin: 0; padding: 10px 16px; }
+  .timeline li {
+    display: none; border-left: 3px solid var(--line); margin: 0; padding: 6px 0 6px 16px;
+    position: relative; font-size: 14.5px;
+  }
+  .timeline li.show { display: block; }
+  .timeline li::before {
+    content: ""; position: absolute; left: -7.5px; top: 14px;
+    width: 12px; height: 12px; border-radius: 50%; background: #98a2b3;
+  }
+  .timeline li.good::before { background: var(--ok); }
+  .timeline li.bad { border-left-color: var(--warn); background: var(--warn-bg); border-radius: 0 8px 8px 0; }
+  .timeline li.bad::before { background: var(--warn); }
+  .timeline li.goodend { border-left-color: var(--ok); background: var(--ok-bg); border-radius: 0 8px 8px 0; }
+  .timeline li.goodend::before { background: var(--ok); }
+  .timeline .who { font-weight: 600; margin-right: .4em; }
+  .timeline .tok { color: var(--ok); font-weight: 600; }
+
+  @media (max-width: 900px) {
+    .wrap { display: block; }
+    nav.side { position: static; width: auto; height: auto; border-right: none; border-bottom: 1px solid var(--line); }
+    .page { padding: 20px 18px 70px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav class="side" id="sidenav">
+  <h1>SpiceDB を一から</h1>
+  <div class="sub">textbook HTML 版<br>(MD 版と同内容 + 動く図)</div>
+  <a href="#ch00">00 なぜ認可は難しいのか</a>
+  <a href="#ch01">01 ReBAC という考え方</a>
+  <a href="#ch02">02 スキーマ言語の全体系</a>
+  <a href="#ch03">03 relationship と Check</a>
+  <a href="#ch04">04 zed とスキーマのテスト</a>
+  <a href="#ch05">05 SpiceDB を動かす</a>
+  <a href="#ch06">06 一貫性と New Enemy</a>
+  <a href="#ch07">07 アプリへの組み込み</a>
+</nav>
+<main><div class="page">
+
+<div class="callout note" style="margin-top:6px">
+この HTML は repo の <code>docs/architecture/textbook/*.md</code> と同じ内容を、
+サイドバー・ステップ送りの図・用語アコーディオンで読みやすくしたもの。
+正本は Markdown 側。手を動かす対の教材は <code>tutorial/</code>、応用は <code>app/</code> (docshare)。
+<b>急いでいる場合は 00 → 02 → 04 の 3 章</b>でスキーマを書いてテストできるようになる。
+本番投入の前には 06 と 07 を必ず読む。
+</div>
+
+<!-- ================================================================ 00 -->
+<h2 class="ch" id="ch00"><span class="no">00</span>なぜ認可は難しいのか</h2>
+
+<h3>if 文で始まり、if 文で破綻する</h3>
+<p>文書共有サービスを作るとする。最初の認可はこの程度で済む。</p>
+<pre><code>if doc.OwnerID == user.ID { /* OK */ }</code></pre>
+<p>要求はすぐ増える。</p>
+<table>
+  <tr><th>#</th><th>要求</th><th>正体</th></tr>
+  <tr><td>1</td><td>フォルダに入れた文書は、フォルダを見られる人も見られるように</td><td>階層</td></tr>
+  <tr><td>2</td><td>eng チームの全員に見せたい。メンバーの出入りで文書側は触りたくない</td><td>グループ</td></tr>
+  <tr><td>3</td><td>全社公開の文書</td><td>公開</td></tr>
+  <tr><td>4</td><td>社外の人に 1 時間だけ共有</td><td>期限</td></tr>
+  <tr><td>5</td><td>この人だけは何があっても見せない</td><td>ブロック</td></tr>
+  <tr><td>6</td><td>「自分が見られる文書の一覧」を出したい</td><td>逆引き</td></tr>
+</table>
+<p>これを if 文で追うと、権限ロジックがハンドラ中に散らばり、「結局この文書を誰が見られるのか」に誰も答えられなくなる。特に 6 の逆引きは、判定ロジックが命令形コードの中にあると原理的に書けない。</p>
+
+<details class="term"><summary>認証と認可</summary><div class="body">
+<b>認証 (authentication)</b> は相手が誰かを確かめること (ログイン、OIDC、パスキー)。
+<b>認可 (authorization)</b> はその人が何をしてよいか決めること。この教材の主題は後者で、
+デモアプリは認証を意図的に省いて <code>X-User</code> ヘッダを信じる。
+なお OAuth 2.0 の文脈にも「認可」という言葉が出てくるが、あれは<b>別の問題</b>を指している。章末のコラムで切り分ける。
+</div></details>
+
+<h3>Zanzibar — Google の答え</h3>
+<p>Google も同じ問題を抱えていた。Drive・Docs・YouTube・Photos などの認可を一手に引き受ける社内システムが <b>Zanzibar</b> で、2019 年に論文が公開された。要点は 3 つ。</p>
+<ol>
+  <li>認可を<b>専用のサービスに集約</b>する (各アプリの if 文をやめる)</li>
+  <li>権限は「<b>関係</b>」のグラフとして表す (01 章の ReBAC)</li>
+  <li>分散環境でもキャッシュが効き、かつ権限剥奪を取りこぼさない仕掛けを持つ (06 章の New Enemy 問題と ZedToken)</li>
+</ol>
+<details class="term"><summary>Zanzibar 論文</summary><div class="body">
+"Zanzibar: Google's Consistent, Global Authorization System" (USENIX ATC 2019)。
+毎秒 1,000 万件超のチェックを 95%ile 10ms 以下で返す、という規模の話だが、
+概念自体は小さなシステムにもそのまま使える。
+</div></details>
+
+<h3>SpiceDB — その OSS 実装</h3>
+<p><b>SpiceDB</b> は Zanzibar にインスパイアされた OSS (Apache-2.0) の認可データベース。AuthZed 社が開発している。Zanzibar 系の中で実装が成熟していて、スキーマ言語とテスト道具 (zed) が学習に向く。アプリから見た SpiceDB は「権限の問いに答える gRPC サービス」で、持ち物は 2 つ。</p>
+<table>
+  <tr><th>持ち物</th><th>例</th><th>誰が書くか</th></tr>
+  <tr><td><b>スキーマ</b> (型)</td><td>「document には viewer がいて、view = viewer + …」</td><td>開発者が設計時に</td></tr>
+  <tr><td><b>relationship</b> (データ)</td><td>「document:design の viewer は user:bob」</td><td>アプリが実行時に</td></tr>
+</table>
+<p>アプリは判定を自前でせず、<code>Check(資源, 権限, 人)</code> を SpiceDB に聞く。</p>
+
+<details class="term"><summary>ReBAC</summary><div class="body">
+Relationship-Based Access Control。「誰と何がどんな関係にあるか」のグラフから権限を導く方式。01 章で RBAC / ABAC と比べながら説明する。
+</div></details>
+<details class="term"><summary>OSS 版とマネージド版</summary><div class="body">
+セルフホストの SpiceDB (この教材はこれ) のほか、AuthZed 社のマネージド (AuthZed Dedicated / Cloud) がある。API とスキーマは同じなので、学んだことはそのまま持ち運べる。
+</div></details>
+<details class="term"><summary>gRPC</summary><div class="body">
+HTTP/2 上の RPC フレームワーク。SpiceDB の一次 API は gRPC で、各言語の公式クライアント (authzed-go など) から叩く。gRPC が使えない環境向けに HTTP (REST) ゲートウェイも同梱されている (05 章)。
+</div></details>
+
+<h3>この repo の歩き方</h3>
+<table>
+  <tr><th>場所</th><th>役割</th></tr>
+  <tr><td><code>tutorial/</code></td><td><b>手</b>。1 章 1 概念、書いたそばから <code>zed validate</code> で答え合わせ</td></tr>
+  <tr><td>この textbook</td><td><b>頭</b>。概念を順番に、体系立てて</td></tr>
+  <tr><td><code>app/</code></td><td><b>応用</b>。Go 製の文書共有 API に SpiceDB を組み込む</td></tr>
+</table>
+<p>冒頭の要求 1〜6 は、この教材を終えると全部スキーマ数行ずつで表せるようになる (1=arrow、2=group、3=wildcard、4=caveat、5=exclusion、6=LookupResources)。</p>
+
+<h3>コラム — OAuth 2.0 の「認可」とこの本の「認可」</h3>
+<p>どちらも日本語では「認可」(英語でも authorization) だが、<b>解いている問題が違う</b>。OAuth 2.0 を知っていると SpiceDB の話が二重写しに見えるので、先に切り分けておく。</p>
+<ul>
+  <li><b>OAuth 2.0 の認可 (委譲)</b> — 「ユーザーが、自分の代わりに動くアプリ (クライアント) に、自分のリソースへの<b>限定されたアクセスを貸し出す</b>」ための取り決め。「このアプリに Google カレンダーの読み取りを許可しますか?」の同意画面がそれで、成果物は<b>アクセストークン</b></li>
+  <li><b>この本の認可 (アクセス制御)</b> — 「<b>この人</b>は<b>この資源</b>に<b>この操作</b>をしてよいか」をサービスがリクエストのたびに判定する話。判定材料は所有・共有・所属といった<b>関係</b>。SpiceDB / Zanzibar はこちら</li>
+</ul>
+<table>
+  <tr><th>観点</th><th>OAuth 2.0 (委譲)</th><th>アクセス制御 (この本)</th></tr>
+  <tr><td>問い</td><td>ユーザーは<b>このアプリに</b>何を貸すか</td><td><b>このユーザーは</b>この資源に何ができるか</td></tr>
+  <tr><td>許可を出すのは</td><td>リソースオーナー (ユーザー本人) の同意</td><td>サービス (スキーマ + relationship)</td></tr>
+  <tr><td>決まるタイミング</td><td>トークン発行時に前払い</td><td>リクエストごとに都度評価</td></tr>
+  <tr><td>粒度</td><td>scope (<code>calendar.readonly</code> など API の範囲)</td><td>資源 × 操作 × 主体 (document:design を bob が view)</td></tr>
+  <tr><td>取り消し</td><td>トークンの期限切れ / revoke</td><td>relationship の削除 (直後から確実に。06 章)</td></tr>
+</table>
+<p><b>実際のシステムでは両方を重ねて使う。</b>典型的な 1 リクエストはこう流れる。</p>
+<ol>
+  <li>クライアントがアクセストークン付きでリクエストを送る</li>
+  <li>サービスはトークンを検証し、「誰の代理か (認証)」と「アプリに貸された範囲 (scope)」を確認する — OAuth / OIDC の領分</li>
+  <li>その上で「では<b>その人は</b> document:design を view できるのか」を SpiceDB に聞く — この本の領分</li>
+</ol>
+<p>scope を通過しても、資源単位の可否はまだ何も決まっていない。scope は「アプリに貸した API の範囲」であって「ユーザー自身の権限」ではないから。docshare の <code>X-User</code> ヘッダは、この 1〜2 が済んだ後の状態を素朴に代用したもの。</p>
+<details class="term"><summary>scope に資源を詰めたくなったら</summary><div class="body">
+<code>document:123:read</code> のような資源単位の scope を切りたくなったら、それはアクセス制御を OAuth 側でやろうとしているサイン。トークン発行時に権限が固定されるので剥奪が効かず (トークンが生きている限り読める)、資源 × 操作の組み合わせで scope が爆発する。scope は API の粗い範囲に留め、資源単位の可否はアクセス制御側 (SpiceDB) で都度判定するのが定石。
+</div></details>
+<details class="term"><summary>OIDC との三角関係</summary><div class="body">
+OpenID Connect (OIDC) は OAuth 2.0 の上に乗った<b>認証</b>の仕様で、「誰がログインしたか」(ID トークン) を扱う。整理すると、OIDC = 認証 (誰か) / OAuth 2.0 = 委譲 (アプリに何を貸すか) / SpiceDB = アクセス制御 (その人がこの資源に何をできるか)。3 つは競合ではなく、1 つのリクエストの中で順に登場する。
+</div></details>
+<p class="next"><a href="#ch01">次章: 01 ReBAC という考え方 →</a></p>
+
+<!-- ================================================================ 01 -->
+<h2 class="ch" id="ch01"><span class="no">01</span>ReBAC という考え方</h2>
+
+<h3>権限モデルの系譜</h3>
+<table>
+  <tr><th>モデル</th><th>権限の根拠</th><th>例</th></tr>
+  <tr><td>ACL</td><td>資源ごとの許可リスト</td><td>この文書の閲覧者: alice, bob</td></tr>
+  <tr><td>RBAC</td><td>役割 (role)</td><td>「編集者」ロールを持つ人は編集できる</td></tr>
+  <tr><td>ABAC</td><td>属性の論理式</td><td>部署 = 営業 かつ 等級 ≥ 3 なら閲覧可</td></tr>
+  <tr><td><b>ReBAC</b></td><td><b>関係のグラフ</b></td><td>文書 ← フォルダ ← owner という関係をたどれる人</td></tr>
+</table>
+<details class="term"><summary>ACL (Access Control List)</summary><div class="body">
+資源 1 つずつに「誰が何をできるか」を列挙する最古の形。単純だが、「eng チーム全員」のような集合や「フォルダの中は全部」のような構造を表せず、列挙の維持が破綻しやすい。
+</div></details>
+<details class="term"><summary>RBAC (Role-Based Access Control)</summary><div class="body">
+ユーザーに役割を割り当て、役割に権限を紐づける。組織の職務と相性がよく社内システムの定番。粒度は「システム全体 × 役割」になりがち。
+</div></details>
+<details class="term"><summary>ABAC (Attribute-Based Access Control)</summary><div class="body">
+ユーザー・資源・環境の属性を条件式で評価する。柔軟だが、条件式が増えると「なぜ許可されたのか」の説明が難しくなる。
+</div></details>
+
+<h3>RBAC が苦しくなる瞬間</h3>
+<p>RBAC の権限は「システム全体でその役割か」に寄っていく。Drive 的な要求はほぼ<b>資源単位</b>なので、00 章の要求リストを RBAC のまま真面目にテーブル設計すると、次の階段を 1 段ずつ降りることになる。</p>
+
+<h4>段階 1 — 全体ロールで始める</h4>
+<pre><code>CREATE TABLE user_roles (
+  user_id TEXT,
+  role    TEXT   -- 'admin' | 'editor' | 'viewer'
+);</code></pre>
+<pre><code>if hasRole(user, "editor") { /* 編集 OK */ }</code></pre>
+<p>きれいに RBAC。しかしこの editor は「<b>全文書の</b>編集者」で、最初の要求「<b>この</b>フォルダだけ編集させたい」が既に表せない。</p>
+
+<h4>段階 2 — ロールに資源スコープを付ける</h4>
+<pre><code>CREATE TABLE user_folder_roles (
+  user_id   TEXT,
+  folder_id TEXT,
+  role      TEXT   -- そのフォルダでの 'editor' | 'viewer'
+);</code></pre>
+<p>行数は ユーザー × フォルダ × ロール で増えていく。名前は「ロール」のままだが、<b>実体はもう資源ごとの許可の割り当て表 (ACL)</b> に変質している。さらに「eng チームの全員に」を配るには <code>group_members</code> と <code>group_folder_roles</code> を足し、グループの入れ子が要求された時点で、メンバー解決の再帰クエリを手書きする。</p>
+<details class="term"><summary>ロール爆発</summary><div class="body">
+資源単位の細かい制御を RBAC でやろうとして、資源 × 操作の数だけ役割 (またはロール割り当て行) が増殖する現象。段階 2 の表がまさにそれで、役割の棚卸しが不可能になった時点で統制も破綻する。
+</div></details>
+<details class="term"><summary>再帰クエリ (WITH RECURSIVE)</summary><div class="body">
+SQL で「グループのグループ」のような深さ不定の構造をたどる書き方 (再帰 CTE)。書けるが、認可のホットパス (全リクエストが通る) に手書きの再帰 SQL が入ることになり、性能とレビューの両方が重くなる。
+</div></details>
+
+<h4>段階 3 — 階層継承で、チェックが「表引き」でなくなる</h4>
+<p>「フォルダの中は親から継承」が入ると、check は 1 回の表引きでは済まなくなる。</p>
+<pre><code>func canEdit(user User, folder *Folder) bool {
+    for f := folder; f != nil; f = f.Parent() { // 親フォルダへ 1 段ずつ
+        if hasFolderRole(user, f, "editor") {
+            return true
+        }
+        if anyGroupHasFolderRole(groupsOf(user), f, "editor") {
+            return true
+        }
+    }
+    return false
+}</code></pre>
+<p>ループの形をよく見ると、これは<b>関係の表をたどるグラフ探索</b>そのもの。しかも文書を触るサービス全部が同じループを持つ (共有ライブラリにしても、言語が違うサービスが 1 つあればもう 1 本書く)。</p>
+
+<h4>段階 4 — 例外が積もり、仕様が分散する</h4>
+<ul>
+  <li>全社公開 → <code>is_public</code> カラムを足して check の頭に if を 1 個</li>
+  <li>期限付き共有 → <code>expires_at</code> カラムを足して全クエリに WHERE を 1 個</li>
+  <li>「この人だけは何があっても見せない」→ RBAC に <b>拒否 (deny)</b> の概念は無いので、<code>banned_users</code> 表を足して「deny が allow に勝つ」評価順をアプリの規約として決める</li>
+</ul>
+<p>この時点で「誰が何を見られるか」の正しさは、<b>表 4〜5 枚 + if 文の並び順</b>に分散している。仕様を一言で答えられる人はもういない。</p>
+<details class="term"><summary>deny (拒否) と評価順</summary><div class="body">
+許可の集合に「例外として除く」を混ぜると、必ず「どちらが勝つか」の順序規則が要る。RBAC 標準にはこれが無いためアプリ規約になりがち。SpiceDB では式の中の <code>-</code> (exclusion) として順序ごと宣言できる (tutorial/02)。
+</div></details>
+
+<h4>段階 5 — 逆引きで二重実装になる</h4>
+<p>「自分が見られる文書の一覧」は、段階 3 の Go のループでは書けない (全文書に対してループを回すわけにはいかない)。そこで同じ規則を <b>SQL の JOIN に裏返してもう 1 回書く</b>。check (Go のループ) と一覧 (SQL) は別実装なので、仕様変更のたびに両方を直す。どちらかの直し漏れが、そのまま権限事故になる。</p>
+
+<h4>降りきった先が ReBAC</h4>
+<p>気づけば作っているのは「<b>関係を表に保存し、チェック時にたどる</b>」自作エンジンで、構造はもう ReBAC になっている。ただしテスト・キャッシュ・一貫性の面倒は誰も見ていない。これを汎用化して専用サービスへ切り出し、磨き上げたものが Zanzibar であり SpiceDB。つまり「RBAC → ReBAC」は別物への乗り換えというより、<b>自作しかけたものの完成品に移る</b>話になる。</p>
+
+<h3>ReBAC: 権限 = グラフの到達可能性</h3>
+<p>ReBAC は発想を変える。<b>世界を「オブジェクト」と「関係」のグラフとして記録し、権限の問いを「グラフをたどって届くか」に置き換える。</b>応用アプリ docshare の世界はこうなっている (辺 1 本 = relationship 1 本)。</p>
+
+<div class="widget">
+  <div class="head">docshare の世界 — 認可はグラフ</div>
+  <div class="canvas">
+    <svg viewBox="0 0 860 320" width="100%" style="min-width:700px">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#667085"/></marker>
+        <marker id="arr-q" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#b8860b"/></marker>
+        <marker id="arr-ok" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#1a7f37"/></marker>
+      </defs>
+      <!-- nodes -->
+      <g><rect class="nodebox" x="20" y="90" width="150" height="34" rx="6"/><text x="95" y="112" text-anchor="middle">document:design</text></g>
+      <g><rect class="nodebox" x="20" y="230" width="170" height="34" rx="6"/><text x="105" y="252" text-anchor="middle">document:handbook</text></g>
+      <g><rect class="nodebox" x="270" y="90" width="140" height="34" rx="6"/><text x="340" y="112" text-anchor="middle">folder:eng-docs</text></g>
+      <g><rect class="nodebox" x="500" y="30" width="110" height="34" rx="6"/><text x="555" y="52" text-anchor="middle">folder:root</text></g>
+      <g><rect class="nodebox" x="500" y="150" width="100" height="34" rx="6"/><text x="550" y="172" text-anchor="middle">group:eng</text></g>
+      <g><circle class="person" cx="760" cy="40" r="14"/><text x="760" y="78" text-anchor="middle">user:alice</text></g>
+      <g><circle class="person" cx="760" cy="160" r="14"/><text x="760" y="198" text-anchor="middle">user:bob</text></g>
+      <g><circle class="person" cx="500" cy="280" r="14" stroke-dasharray="4 3"/><text x="560" y="285">全員 (user:*)</text></g>
+      <!-- edges -->
+      <path class="edge" d="M170 107 H268"/><text class="elabel" x="215" y="100">parent</text>
+      <path class="edge" d="M410 100 C 450 80, 470 60, 498 50"/><text class="elabel" x="435" y="62">parent</text>
+      <path class="edge" d="M410 118 C 450 135, 465 150, 498 160"/><text class="elabel" x="404" y="142" text-anchor="end">viewer (#member)</text>
+      <path class="edge" d="M610 45 H 740"/><text class="elabel" x="660" y="38">owner</text>
+      <path class="edge" d="M600 164 H 740"/><text class="elabel" x="655" y="157">member</text>
+      <path class="edge" d="M190 240 C 300 200, 400 100, 498 55"/><text class="elabel" x="300" y="205">parent</text>
+      <path class="edge" d="M190 255 C 300 275, 400 280, 483 280"/><text class="elabel" x="330" y="290">viewer</text>
+    </svg>
+  </div>
+</div>
+
+<p>「bob は design を view できるか」は、</p>
+<pre><code>document:design --parent--&gt; folder:eng-docs --viewer--&gt; group:eng#member --member--&gt; user:bob</code></pre>
+<p>という<b>経路が存在するか</b>の問いになる。冒頭の要求たちが素直に表せる理由は:</p>
+<ul>
+  <li>階層 → 「parent」という辺をたどる規則を 1 行書くだけ (tutorial/03 の arrow)</li>
+  <li>グループ → 「グループの member 集合」を辺の先に置くだけ (tutorial/04)</li>
+  <li>逆引き → グラフを逆向きにたどれば「見られる資源の列挙」になる (LookupResources)</li>
+</ul>
+<details class="term"><summary>到達可能性 (reachability)</summary><div class="body">
+グラフ理論の言葉で「ある頂点から別の頂点へ辺をたどって行けるか」。ReBAC の権限チェックは、規則 (スキーマ) に従った到達可能性判定と言い切れる。だから答えが「なぜ許可か」=「この経路があるから」と説明可能になる (<code>zed permission check --explain</code> がまさに経路を表示する)。
+</div></details>
+
+<h3>SpiceDB は ReBAC + 条件 (ABAC 味)</h3>
+<p>SpiceDB の本体は ReBAC だが、関係に<b>条件式</b> (caveat、tutorial/06) を付けられるので、ABAC 的な「期限内なら」「この IP からなら」も混ぜられる。また RBAC は「role という関係」として ReBAC の上に自然に作れる (role を relation にすればよい)。実務では <b>ReBAC を土台に、必要な場所にだけ属性条件を足す</b>使い方になる。</p>
+
+<h3>コラム — GCP IAM は RBAC なのか</h3>
+<p>Google Cloud の IAM は「permission (<code>storage.objects.get</code>) を role に束ね、principal に role を割り当てる」ので、語彙は RBAC に見える。この章の言葉で分類すると、<b>語彙は RBAC、構造は「リソース階層に接ぎ木した RBAC」</b>になる。</p>
+<table>
+  <tr><th>GCP IAM</th><th>正体</th><th>この章の対応物</th></tr>
+  <tr><td>permission (<code>storage.objects.get</code>)</td><td>capability そのもの</td><td>—</td></tr>
+  <tr><td>role (<code>roles/storage.objectViewer</code>)</td><td>permission の<b>束</b>に名前を付けたもの</td><td>RBAC の語彙 (role = 束)</td></tr>
+  <tr><td>role binding (IAM ポリシー)</td><td><b>(principal, role, リソースノード)</b> の 3 つ組。org / folder / project / 個別リソースに貼る</td><td>段階 2 (ロールに資源スコープ)</td></tr>
+  <tr><td>階層継承 (org → folder → project → 資源)</td><td>上位の binding が下に効く。評価は祖先をさかのぼる</td><td>段階 3 (チェックがグラフ探索になる)</td></tr>
+  <tr><td>Google グループ</td><td>メンバー解決付きの主体集合</td><td>subject relation (tutorial/04)</td></tr>
+  <tr><td>IAM Conditions</td><td>binding に付く CEL の条件式 (時刻・リソース名など)</td><td>caveat — 言語まで同じ CEL (tutorial/06)</td></tr>
+  <tr><td>Deny policies</td><td>allow に勝つ拒否。後年に別機構として追加された</td><td>exclusion (「RBAC に deny が無い」の傍証)</td></tr>
+</table>
+<p>つまり GCP IAM は、上の<b>段階 2〜4 を製品として磨き上げたもの</b>。語彙は RBAC のまま、評価構造はすでに ReBAC 的なグラフ探索をしている。</p>
+<p>それでも GCP IAM が汎用の認可基盤にならないのは、<b>階層が Google のリソースツリー 1 本に固定</b>されているから。アプリ独自の資源や関係 — 文書の owner、期限付き共有、全員公開 — は持ち込めない。Google 自身も、Cloud IAM とは別に Drive や YouTube の共有は Zanzibar で動かしている。「自分のアプリに GCP IAM のような権限管理が欲しい」と思ったときに作ることになるのが、次の SpiceDB モデルになる。</p>
+<details class="term"><summary>SpiceDB で GCP 風 IAM (role / role_binding) を書く</summary><div class="body">
+<p><code>role</code> を definition にし、capability ごとの relation に <code>user:*</code> を「この役割はこの capability を含む」というフラグとして書く。<code>role_binding</code> が「割り当てられた人 ∩ 役割がその capability を含む」を intersection で取る。</p>
+<pre><code>definition user {}
+
+definition role {
+    // 役割が capability を含むなら user:* を 1 本書く (フラグ扱い)
+    relation storage_objects_get: user:*
+}
+
+definition role_binding {
+    relation principal: user
+    relation role: role
+    permission storage_objects_get = principal &amp; role-&gt;storage_objects_get
+}
+
+definition project {
+    relation binding: role_binding
+    permission storage_objects_get = binding-&gt;storage_objects_get
+}</code></pre>
+<p>relationship は 4 本: <code>role:object_viewer#storage_objects_get@user:*</code> (ロールの中身)、<code>role_binding:b1#principal@user:alice</code> と <code>role_binding:b1#role@role:object_viewer</code> (割り当て)、<code>project:demo#binding@role_binding:b1</code> (どこに効くか)。<b>ロールの中身を変えると割り当て済み全員へ一斉に効く</b>という RBAC の性質が、relationship 1 本の増減で再現できる。</p>
+<p>なお <code>role-&gt;storage_objects_get</code> は relation を指す arrow なので、03 章の作法からは外れて lint 警告が出る。ここでは capability の relation 自体が role の公開インターフェースなので、承知の上でこの形が使われている (AuthZed 公式の例も同じ)。原典: https://authzed.com/blog/google-cloud-iam-modeling (ロールを実行時にユーザー定義させる発展形は https://authzed.com/blog/user-defined-roles)</p>
+</div></details>
+<p class="next"><a href="#ch02">次章: 02 スキーマ言語の全体系 →</a></p>
+
+<!-- ================================================================ 02 -->
+<h2 class="ch" id="ch02"><span class="no">02</span>スキーマ言語の全体系</h2>
+<p class="lead">スキーマは世界の型を決める。1 つずつ手を動かすなら tutorial/01〜06 が対応する。</p>
+<pre><code>definition user {}
+
+definition document {
+    relation viewer: user            // 関係の宣言 (材料)
+    permission view = viewer         // 権限の定義 (材料の合成)
+}</code></pre>
+
+<h3>3 つの宣言</h3>
+<table>
+  <tr><th>宣言</th><th>役割</th><th>覚え方</th></tr>
+  <tr><td><code>definition</code></td><td>オブジェクトの型</td><td>DB のテーブル定義に相当</td></tr>
+  <tr><td><code>relation</code></td><td>持ちうる関係と、その相手の型</td><td><b>名詞</b>で命名 (viewer, owner, parent)</td></tr>
+  <tr><td><code>permission</code></td><td>関係から導く「できること」</td><td><b>動詞</b>で命名 (view, edit, share)</td></tr>
+</table>
+<p>relation は「データを入れる箱」、permission は「箱をつなぐ計算式」。実際に誰が viewer なのかは relationship (03 章) が持つ。</p>
+<details class="term"><summary>名詞 / 動詞の命名規約</summary><div class="body">
+authzed 公式の推奨。relation は状態 (〜である)、permission は行為 (〜できる)。この規約に沿うだけで <code>check document:x view user:y</code> が英文として読め、relation と permission の取り違えも起きにくい。
+</div></details>
+
+<h3>部品の一覧</h3>
+<table>
+  <tr><th>部品</th><th>書き方</th><th>意味</th><th>手を動かす</th></tr>
+  <tr><td>union</td><td><code>a + b</code></td><td>どちらかに入っていれば</td><td>tutorial/02</td></tr>
+  <tr><td>intersection</td><td><code>a &amp; b</code></td><td>両方に入っている人だけ</td><td>tutorial/02</td></tr>
+  <tr><td>exclusion</td><td><code>a - b</code></td><td>b の人を除く</td><td>tutorial/02</td></tr>
+  <tr><td>arrow</td><td><code>parent-&gt;view</code></td><td>関係の先のオブジェクトで view を評価</td><td>tutorial/03</td></tr>
+  <tr><td>subject relation</td><td><code>group#member</code></td><td>グループの member <b>集合</b>を関係の相手に</td><td>tutorial/04</td></tr>
+  <tr><td>wildcard</td><td><code>user:*</code></td><td>「user 型の全員」という relationship を許す</td><td>tutorial/05</td></tr>
+  <tr><td>caveat</td><td><code>user with not_expired</code></td><td>条件式 (CEL) 付きの関係</td><td>tutorial/06</td></tr>
+</table>
+<details class="term"><summary>arrow の Zanzibar 用語</summary><div class="body">
+Zanzibar 論文では tuple-to-userset (TTU) と呼ばれる操作。「タプル (parent 関係) をたどった先の userset (view を持つ集合)」の意。SpiceDB の <code>-&gt;</code> はこれの読みやすい記法。
+</div></details>
+<details class="term"><summary>CEL</summary><div class="body">
+Common Expression Language。Google 製の副作用なし式言語で、Kubernetes のポリシー記述などでも使われる。caveat の中身はこれ。
+</div></details>
+
+<h3>設計の指針</h3>
+<h4>API からは permission だけを見る</h4>
+<p>アプリの check は必ず permission に対して行い、relation を直接 check しない。relation は実装詳細で、permission はインターフェース。この分離を守ると、「reader にも編集させたい」のような変更がスキーマ 1 行で済み、アプリは動かない。同じ理由で <b>arrow の右側も permission を指す</b>のが作法 (tutorial/03)。</p>
+<h4>権限は資源側の語彙で切る</h4>
+<p><code>can_call_this_endpoint</code> ではなく <code>view</code> / <code>edit</code> / <code>share</code> のように、資源にとって意味のある単位で permission を切る。エンドポイントが増えても permission の再利用で済むことが多い。</p>
+<h4>迷ったら「誰の集合か」を書き下す</h4>
+<p>permission の右辺は常に「ユーザーの集合を作る式」。日本語で「<b>見られる</b>のは: viewer と、編集できる人と、親フォルダを見られる人。ただし banned は除く」と言い切れれば、そのまま式になる。式だけ見ても掴めないので、材料 (relation) と参照先まで全部そろえた形で見る。</p>
+<pre><code>definition user {}
+
+definition folder {
+    relation viewer: user
+    permission view = viewer  // 実物はさらに階層をたどる (下の「全部入りの実例」)
+}
+
+definition document {
+    // 材料 (relation): 誰がこの文書とどう関わっているか
+    relation parent: folder
+    relation owner: user
+    relation editor: user
+    relation viewer: user
+    relation banned: user
+
+    // 「編集できるのは: owner か editor」
+    permission edit = owner + editor
+
+    // 「見られるのは: viewer と、編集できる人と、親フォルダを見られる人。
+    //  ただし banned は除く」 ← この日本語がそのまま次の 1 行になる
+    permission view = (viewer + edit + parent-&gt;view) - banned
+}</code></pre>
+<table>
+  <tr><th>日本語</th><th>式の部品</th><th>正体</th></tr>
+  <tr><td>viewer</td><td><code>viewer</code></td><td>この文書に直接付けた閲覧者。すぐ上で宣言した relation</td></tr>
+  <tr><td>編集できる人</td><td><code>edit</code></td><td><b>同じ definition の permission の再利用</b>。owner + editor を二度書きしない</td></tr>
+  <tr><td>親フォルダを見られる人</td><td><code>parent-&gt;view</code></td><td><code>parent</code> 関係の先 (folder) で <code>view</code> を評価する arrow</td></tr>
+  <tr><td>ただし banned は除く</td><td><code>- banned</code></td><td>ここまでの union 全体から banned の集合を引く</td></tr>
+</table>
+<p>見どころは 2 つ。</p>
+<ul>
+  <li>式の材料には relation だけでなく <b>permission も置ける</b> (<code>edit</code> の再利用)。「編集できる人は当然見られる」を一度だけ書いておけば、後で edit の定義が変わっても (editor をやめてグループ制にしても) view は勝手に追従する</li>
+  <li><code>- banned</code> は括弧の<b>外に一度だけ</b>。直接の viewer でも、編集者でも、フォルダ経由でも、どの経路から届いた人も banned なら等しく除かれる。経路ごとに引き算を書いて回る必要はない</li>
+</ul>
+
+<h3>全部入りの実例</h3>
+<p>応用アプリのスキーマ <code>app/schema/schema.zed</code> が上の部品の全部入りで、コメントも添えてある。各部品がなぜその場所にあるかは 07 章で解剖する。</p>
+<details class="term"><summary>スキーマの型検査</summary><div class="body">
+<code>relation viewer: user | group#member</code> の型注釈は書き込み時に検査される。型に無い relationship (例: document を viewer に入れる) は書けない。「関係の相手が何者か」をスキーマが保証するので、データの荒れ方が一段減る。
+</div></details>
+<p class="next"><a href="#ch03">次章: 03 relationship と Check の実体 →</a></p>
+
+<!-- ================================================================ 03 -->
+<h2 class="ch" id="ch03"><span class="no">03</span>relationship と Check の実体</h2>
+
+<h3>relationship は「データ」</h3>
+<p>スキーマが型なら、relationship は行。1 本がグラフの辺 1 つに当たる。</p>
+<pre><code>document:design#viewer@user:bob
+&lt;資源&gt;:&lt;id&gt;#&lt;relation&gt;@&lt;主体&gt;:&lt;id&gt;</code></pre>
+<p>SpiceDB はこれを自分の datastore (05 章) に<b>保存する</b>。SpiceDB は「判定エンジン」ではなく「認可データを持つデータベース」。アプリの DB には文書の中身を、SpiceDB には「誰がどう関わるか」を置く、という分担になる (07 章)。</p>
+
+<h3>書き込み API</h3>
+<table>
+  <tr><th>API</th><th>役割</th><th>補足</th></tr>
+  <tr><td><code>WriteRelationships</code></td><td>複数の更新を 1 トランザクションで</td><td>操作は CREATE / TOUCH / DELETE</td></tr>
+  <tr><td><code>DeleteRelationships</code></td><td>フィルタ一致をまとめて削除</td><td>一致 0 件でもエラーにならない</td></tr>
+  <tr><td><code>ImportBulk</code> / <code>ExportBulk</code></td><td>大量投入・退避</td><td>移行や初期投入用</td></tr>
+</table>
+<details class="term"><summary>CREATE と TOUCH の違い</summary><div class="body">
+CREATE は「既にあればエラー」、TOUCH は「あってもなくても最終的にある」(冪等)。アプリの再試行を考えると、通常は TOUCH のほうが扱いやすい。docshare のラッパも TOUCH に寄せている。
+</div></details>
+<p>書き込みはどれも <b>ZedToken</b> (その書き込みを含む revision の栞) を返す。これが後で効いてくる (06 章)。</p>
+
+<h3>Check はグラフ探索 — 動かして見る</h3>
+<p><code>Check(document:design, view, user:bob)</code> が中で何をしているか。まず前提を固定する。スキーマは <code>app/schema/schema.zed</code> の抜粋 (share / create_document は省略。この抜粋だけでも zed validate が通る形にしてある)。</p>
+<pre><code>definition user {}
+
+definition group {
+    relation member: user | group#member
+}
+
+caveat not_expired(current_time timestamp, expires_at timestamp) {
+    current_time &lt; expires_at
+}
+
+definition folder {
+    relation parent: folder
+    relation owner: user
+    relation editor: user | group#member
+    relation viewer: user | group#member
+
+    permission edit = owner + editor + parent-&gt;edit
+    permission view = viewer + edit + parent-&gt;view
+}
+
+definition document {
+    relation parent: folder
+    relation owner: user
+    relation editor: user | group#member
+    relation viewer: user | group#member | user:*
+    relation shared_viewer: user with not_expired
+    relation banned: user
+
+    permission edit = (owner + editor + parent-&gt;edit) - banned
+    permission view = (viewer + shared_viewer + edit + parent-&gt;view) - banned
+}</code></pre>
+<p>世界を作る relationship は 5 本。<b>下の図の辺と 1:1 で対応する</b>。</p>
+<pre><code>group:eng#member@user:bob                  ← bob は eng のメンバー
+folder:root#owner@user:alice               ← alice は root の owner
+folder:eng-docs#parent@folder:root         ← eng-docs は root の中
+folder:eng-docs#viewer@group:eng#member    ← eng メンバーは eng-docs の viewer
+document:design#parent@folder:eng-docs     ← design は eng-docs の中</code></pre>
+<p>この世界で <code>Check(document:design, view, user:bob)</code> を評価する。<b>「次へ」で 1 手ずつ進めてみる。</b></p>
+
+<div class="widget" id="walk">
+  <div class="head">check の歩み — bob は design を view できるか?</div>
+  <div class="canvas">
+    <svg viewBox="0 0 860 250" width="100%" style="min-width:700px">
+      <!-- nodes -->
+      <g><rect class="nodebox" id="w-design" x="20" y="100" width="150" height="34" rx="6"/><text x="95" y="122" text-anchor="middle">document:design</text></g>
+      <g><rect class="nodebox" id="w-engdocs" x="280" y="100" width="140" height="34" rx="6"/><text x="350" y="122" text-anchor="middle">folder:eng-docs</text></g>
+      <g><rect class="nodebox" id="w-root" x="530" y="30" width="110" height="34" rx="6"/><text x="585" y="52" text-anchor="middle">folder:root</text></g>
+      <g><rect class="nodebox" id="w-eng" x="530" y="170" width="100" height="34" rx="6"/><text x="580" y="192" text-anchor="middle">group:eng</text></g>
+      <g><circle class="person" id="w-alice" cx="790" cy="42" r="14"/><text x="790" y="80" text-anchor="middle">user:alice</text></g>
+      <g><circle class="person" id="w-bob" cx="790" cy="182" r="14"/><text x="790" y="220" text-anchor="middle">user:bob</text></g>
+      <!-- edges -->
+      <path class="edge" id="e-parent1" d="M170 117 H278"/><text class="elabel" x="205" y="110">parent</text>
+      <path class="edge" id="e-parent2" d="M420 108 C 470 85, 490 60, 528 50"/><text class="elabel" x="450" y="68">parent</text>
+      <path class="edge" id="e-viewer" d="M420 126 C 470 150, 490 170, 528 180"/><text class="elabel" x="414" y="150" text-anchor="end">viewer (#member)</text>
+      <path class="edge" id="e-owner" d="M640 46 H 770"/><text class="elabel" x="690" y="39">owner</text>
+      <path class="edge" id="e-member" d="M630 186 H 770"/><text class="elabel" x="685" y="179">member</text>
+    </svg>
+  </div>
+  <div class="narr" id="walk-narr"></div>
+  <div class="ctrl">
+    <button id="walk-prev">← 前へ</button>
+    <button id="walk-next">次へ →</button>
+    <span class="step-ind" id="walk-ind"></span>
+  </div>
+</div>
+
+<details class="term"><summary>サブ問題とキャッシュ</summary><div class="body">
+<p>「folder:eng-docs を view できるか」のようなサブ問題の答えは revision 付きでキャッシュされ、<b>別の check から再利用される</b>。上の世界に <code>document:roadmap#parent@folder:eng-docs</code> をもう 1 本足し、bob が design → roadmap の順に check される場面を動かして見る。</p>
+
+<div class="widget" id="cachewalk">
+  <div class="head">サブ問題キャッシュ — 同じフォルダの 2 文書を続けて check する</div>
+  <div class="canvas">
+    <svg viewBox="0 0 860 240" width="100%" style="min-width:700px">
+      <g><rect class="nodebox" id="c-design" x="20" y="40" width="150" height="34" rx="6"/><text x="95" y="62" text-anchor="middle">document:design</text></g>
+      <g><rect class="nodebox" id="c-roadmap" x="20" y="170" width="160" height="34" rx="6"/><text x="100" y="192" text-anchor="middle">document:roadmap</text></g>
+      <g><rect class="nodebox" id="c-engdocs" x="300" y="105" width="140" height="34" rx="6"/><text x="370" y="127" text-anchor="middle">folder:eng-docs</text></g>
+      <g><rect class="nodebox" id="c-eng" x="560" y="105" width="100" height="34" rx="6"/><text x="610" y="127" text-anchor="middle">group:eng</text></g>
+      <g><circle class="person" id="c-bob" cx="780" cy="122" r="14"/><text x="780" y="160" text-anchor="middle">user:bob</text></g>
+      <path class="edge" id="ce-p1" d="M170 62 C 230 70, 260 92, 302 110"/><text class="elabel" x="212" y="66">parent</text>
+      <path class="edge" id="ce-p2" d="M180 182 C 235 175, 262 152, 302 134"/><text class="elabel" x="212" y="186">parent</text>
+      <path class="edge" id="ce-viewer" d="M440 122 H 558"/><text class="elabel" x="452" y="112">viewer (#member)</text>
+      <path class="edge" id="ce-member" d="M660 122 H 764"/><text class="elabel" x="688" y="112">member</text>
+    </svg>
+  </div>
+  <div class="cachebox">
+    <div class="cachehead">サブ問題キャッシュ (revision 付き)</div>
+    <span class="entry off" id="cw-entry">(まだ空)</span>
+  </div>
+  <div class="narr" id="cw-narr"></div>
+  <div class="ctrl">
+    <button id="cw-prev">← 前へ</button>
+    <button id="cw-next">次へ →</button>
+    <span class="step-ind" id="cw-ind"></span>
+  </div>
+</div>
+
+<p>同じフォルダの文書一覧で N 枚 check しても、フォルダ側の評価が 1 回で済むのはこれ。量子化 (06 章) が「同じ revision」を長持ちさせるのは、このキャッシュの命中率を保つためでもある。</p>
+</div></details>
+<details class="term"><summary>dispatch</summary><div class="body">
+SpiceDB を複数ノードで動かすとき、サブ問題を担当ノードへ振り分ける仕組み。同じサブ問題が同じノードに集まるのでキャッシュ命中率が上がる。学習中は 1 プロセスなので気にしなくてよいが、「サブ問題に分解される」構造がスケールの根拠になっている。
+</div></details>
+
+<h3>問いは Check だけではない</h3>
+<table>
+  <tr><th>API</th><th>問い</th><th>使いどころ</th></tr>
+  <tr><td><code>CheckPermission</code></td><td>この人はこの資源に X できる?</td><td>リクエストの認可判定</td></tr>
+  <tr><td><code>CheckBulkPermissions</code></td><td>上をまとめて何件も</td><td>画面の出し分け一括判定</td></tr>
+  <tr><td><code>LookupResources</code></td><td>この人が X できる資源は?</td><td><b>一覧画面</b> (知らないと N+1 に落ちる)</td></tr>
+  <tr><td><code>LookupSubjects</code></td><td>この資源に X できる人は?</td><td>共有ダイアログ、監査</td></tr>
+  <tr><td><code>ExpandPermissionTree</code></td><td>権限の木そのもの</td><td>管理画面・可視化</td></tr>
+  <tr><td><code>Watch</code></td><td>relationship の変更ストリーム</td><td>キャッシュ無効化、監査ログ</td></tr>
+</table>
+<details class="term"><summary>N+1 問題</summary><div class="body">
+一覧を出すのに「全件取得 → 1 件ずつ check」とすると、件数ぶんの RPC が飛ぶアンチパターン。逆引きは LookupResources に任せ、アプリ DB から本体をまとめて引くのが正しい形 (docshare の <code>GET /documents</code>)。
+</div></details>
+<h3>アプリから見た 1 リクエストの一生</h3>
+<p>ここまでの部品を、アプリの 1 リクエストに並べるとこうなる。<b>読みは「check → 本体を取りに行く」、書きは「check → relationship を書く → 返ってきた ZedToken を保存する」</b>の形が基本。</p>
+<div class="widget" id="reqseq">
+  <div class="head">1 リクエストの一生 — 「次へ」でメッセージが 1 本ずつ流れる</div>
+  <div class="canvas">
+    <svg viewBox="0 0 860 552" width="100%" style="min-width:700px">
+      <defs>
+        <marker id="arr-cur" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#4f46e5"/></marker>
+        <marker id="arr-tok" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#1a7f37"/></marker>
+      </defs>
+      <!-- ライフライン -->
+      <line class="lifeline" x1="90" y1="42" x2="90" y2="540"/>
+      <line class="lifeline" x1="310" y1="42" x2="310" y2="540"/>
+      <line class="lifeline" x1="530" y1="42" x2="530" y2="540"/>
+      <line class="lifeline" x1="730" y1="42" x2="730" y2="540"/>
+      <g><rect class="lifehead" x="35" y="12" width="110" height="30" rx="5"/><text x="90" y="32" text-anchor="middle">クライアント</text></g>
+      <g><rect class="lifehead" x="265" y="12" width="90" height="30" rx="5"/><text x="310" y="32" text-anchor="middle">アプリ</text></g>
+      <g><rect class="lifehead" x="475" y="12" width="110" height="30" rx="5"/><text x="530" y="32" text-anchor="middle">アプリ DB</text></g>
+      <g><rect class="lifehead" x="680" y="12" width="100" height="30" rx="5"/><text x="730" y="32" text-anchor="middle">SpiceDB</text></g>
+      <!-- 区切り -->
+      <rect class="band" x="20" y="58" width="820" height="22" rx="4"/>
+      <text class="bandlabel" x="30" y="74">読み: GET /documents/design (認証済み: bob)</text>
+      <rect class="band" x="20" y="282" width="820" height="22" rx="4"/>
+      <text class="bandlabel" x="30" y="298">書き: POST /documents/design/share (alice が carol に viewer)</text>
+      <!-- メッセージ (読み) -->
+      <g class="msg" id="m1"><path d="M90 100 H302"/><text x="98" y="93">GET /documents/design</text></g>
+      <g class="msg" id="m2"><path d="M310 134 H722"/><text x="318" y="127">CheckPermission(design, view, bob) + consistency / context</text></g>
+      <g class="msg ret" id="m3"><path d="M730 166 H318"/><text x="430" y="159">HAS_PERMISSION</text></g>
+      <g class="msg" id="m4"><path d="M310 198 H522"/><text x="318" y="191">文書本体を SELECT</text></g>
+      <g class="msg ret" id="m5"><path d="M530 228 H318"/><text x="340" y="221">title / body</text></g>
+      <g class="msg ret" id="m6"><path d="M310 260 H98"/><text x="112" y="253">200 (title / body)</text></g>
+      <!-- メッセージ (書き) -->
+      <g class="msg" id="m7"><path d="M90 326 H302"/><text x="98" y="319">POST .../share {user:carol, viewer}</text></g>
+      <g class="msg" id="m8"><path d="M310 358 H722"/><text x="318" y="351">CheckPermission(design, share, alice)</text></g>
+      <g class="msg ret" id="m9"><path d="M730 390 H318"/><text x="430" y="383">HAS_PERMISSION</text></g>
+      <g class="msg" id="m10"><path d="M310 422 H722"/><text x="318" y="415">WriteRelationships(TOUCH design#viewer@user:carol)</text></g>
+      <g class="msg ret tok" id="m11"><path d="M730 454 H318"/><text x="430" y="447">ZedToken t1</text></g>
+      <g class="msg tok" id="m12"><path d="M310 486 H522"/><text x="318" y="479">文書の行に t1 を保存</text></g>
+      <g class="msg ret" id="m13"><path d="M310 518 H98"/><text x="112" y="511">200</text></g>
+    </svg>
+  </div>
+  <div class="narr" id="rs-narr"></div>
+  <div class="ctrl">
+    <button id="rs-prev">← 前へ</button>
+    <button id="rs-next">次へ →</button>
+    <span class="step-ind" id="rs-ind"></span>
+  </div>
+</div>
+<ul>
+  <li>check に添えている consistency と context の意味はそれぞれ 06 章と tutorial/06。書きで返る ZedToken を保存する理由も 06 章</li>
+  <li>実装の lane 分け (httpapi / authz / store) は 07 章で解剖する</li>
+</ul>
+<p>手を動かすなら tutorial/07 がこれらを一巡する。</p>
+<p class="next"><a href="#ch04">次章: 04 zed とスキーマのテスト →</a></p>
+
+<!-- ================================================================ 04 -->
+<h2 class="ch" id="ch04"><span class="no">04</span>zed とスキーマのテスト</h2>
+
+<h3>zed = SpiceDB の公式 CLI</h3>
+<table>
+  <tr><th>よく使う形</th><th>何をする</th></tr>
+  <tr><td><code>zed validate &lt;file&gt;</code></td><td><b>サーバ無しで</b>スキーマ+データ+期待値を検証 (この教材の主役)</td></tr>
+  <tr><td><code>zed schema write / read</code></td><td>スキーマの登録と取得</td></tr>
+  <tr><td><code>zed relationship create / touch / delete / read</code></td><td>relationship の CRUD</td></tr>
+  <tr><td><code>zed permission check / lookup-resources / lookup-subjects</code></td><td>権限の問い</td></tr>
+  <tr><td><code>zed permission check --explain</code></td><td>解決経路の木を表示 (デバッグの主力)</td></tr>
+  <tr><td><code>zed import</code></td><td>validate ファイル形式をそのままサーバへ投入</td></tr>
+</table>
+<p>サーバに繋ぐ系は接続先が要る。使い捨てなら <code>--endpoint localhost:50051 --token &lt;key&gt; --insecure</code> をその都度、常用なら <code>zed context set</code> (<code>~/.zed</code> に保存される点だけ注意)。</p>
+<details class="term"><summary>--insecure</summary><div class="body">
+TLS 無しの平文 gRPC で繋ぐフラグ。ローカル学習用。本番は TLS を張るので不要になる。
+</div></details>
+
+<h3>validate ファイル — スキーマの単体テスト</h3>
+<p>tutorial の各章に置いた <code>validate.yaml</code> の形式。SpiceDB Playground と同じもので、<b>スキーマ・データ・期待値</b>を 1 ファイルに閉じる。</p>
+<pre><code>schemaFile: schema.zed        # または schema: |- でインライン
+relationships: |-
+  document:doc1#reader@user:alice
+assertions:
+  assertTrue:
+    - "document:doc1#view@user:alice"
+    - 'document:doc1#view@user:bob with {"current_time": "2026-06-01T00:00:00Z"}'
+  assertFalse:
+    - "document:doc1#edit@user:alice"
+  assertCaveated:
+    - "document:doc1#view@user:bob"
+validation:
+  "document:doc1#view":
+    - "[user:alice] is &lt;document:doc1#reader&gt;"</code></pre>
+<table>
+  <tr><th>ブロック</th><th>検証すること</th></tr>
+  <tr><td><code>assertions.assertTrue / assertFalse</code></td><td>誰ができる / できない (caveat の context は <code>with {...}</code>)</td></tr>
+  <tr><td><code>assertions.assertCaveated</code></td><td>context 不足なら「条件付き」になること</td></tr>
+  <tr><td><code>validation</code></td><td>その権限が<b>どの relationship 経由か</b>まで固定する</td></tr>
+</table>
+<details class="term"><summary>assertCaveated</summary><div class="body">
+caveat の判定に必要な context が足りないとき、SpiceDB は true/false ではなく CONDITIONAL を返す (tutorial/06)。「必ず条件付きになるはず」を固定する assertion。
+</div></details>
+<details class="term"><summary>validation ブロックの書き方のコツ</summary><div class="body">
+期待する展開結果の文字列は手で当てるのが難しいが、間違えると zed validate が<b>正しい内容を提示してくれる</b>ので、一度わざと空で回して出力を写すのが速い。展開が面白い章 (tutorial/03, 04) にだけ置いてある。
+</div></details>
+
+<h3>スキーマは必ずテストと共に</h3>
+<p>スキーマ 1 行の変更は、デプロイなしで全アプリの権限を変える。強力さは怖さでもあり、この repo では <b>schema.zed の隣に必ず validate.yaml を置く</b>ことにしている (<code>app/schema/</code> も同じ)。特に価値が高いのは assertFalse 側で、「公開しすぎ」「剥奪漏れ」という事故はこちらが検知する。</p>
+<p>CI 相当の一括実行は <code>scripts/check-all.sh</code>。数十 ms/件なので、スキーマを触るたびに全部回してよい。</p>
+<details class="term"><summary>Playground</summary><div class="body">
+https://play.authzed.com — validate ファイルと同じ内容をブラウザで対話的に編集・可視化できる。共有リンクでスキーマ議論をするのに便利。この repo が Playground ではなくローカルの zed validate を主役にした理由は ADR 001。
+</div></details>
+<details class="term"><summary>composable schema</summary><div class="body">
+スキーマを複数ファイルに分割して合成する仕組み (<code>zed preview schema compile</code>)。定義が増えてきた実務向けで、学習中は 1 ファイルで十分。
+</div></details>
+<p class="next"><a href="#ch05">次章: 05 SpiceDB を動かす →</a></p>
+
+<!-- ================================================================ 05 -->
+<h2 class="ch" id="ch05"><span class="no">05</span>SpiceDB を動かす</h2>
+
+<h3>最小の起動</h3>
+<pre><code>spicedb serve --grpc-preshared-key "somekey"</code></pre>
+<p>これだけでメモリ datastore の SpiceDB が立つ。開くポートは 3 つ。</p>
+<table>
+  <tr><th>ポート</th><th>何が居るか</th><th>既定</th></tr>
+  <tr><td>gRPC</td><td>一次 API (アプリ・zed はここ)</td><td>:50051</td></tr>
+  <tr><td>HTTP</td><td>REST ゲートウェイ (<code>--http-enabled</code> のときだけ)</td><td>:8443</td></tr>
+  <tr><td>metrics</td><td>Prometheus 形式のメトリクス</td><td>:9090</td></tr>
+</table>
+<details class="term"><summary>preshared key</summary><div class="body">
+クライアントが <code>Authorization: Bearer &lt;key&gt;</code> として送る共有シークレット。key が合わないと API は一切応答しない。ローカルと CI 用の素朴な認証で、本番 (特にマネージド) はサービス認証や mTLS 側に寄せる。
+</div></details>
+<details class="term"><summary>HTTP ゲートウェイ</summary><div class="body">
+gRPC が使えない環境 (社内 proxy、ブラウザなど) のための REST 変換。<code>POST /v1/permissions/check</code> のような JSON API が gRPC と同じ意味で使える。公式クライアントがある言語なら gRPC を選ぶ。
+</div></details>
+
+<h3>datastore — relationship の置き場所</h3>
+<table>
+  <tr><th>engine</th><th>用途</th></tr>
+  <tr><td><code>memory</code> (既定)</td><td>学習・ローカル。プロセス終了で消える。<b>複数レプリカ不可</b></td></tr>
+  <tr><td><code>postgres</code></td><td>本番の第一候補。運用ノウハウが世の中に多い</td></tr>
+  <tr><td><code>cockroachdb</code> / <code>spanner</code></td><td>マルチリージョンで書き込みも分散させたい規模</td></tr>
+  <tr><td><code>mysql</code></td><td>既存 MySQL 資産に載せたい場合</td></tr>
+</table>
+<p>永続 datastore を使うときは、起動前にマイグレーションを流す。</p>
+<pre><code>spicedb datastore migrate head --datastore-engine postgres --datastore-conn-uri "..."
+spicedb serve --datastore-engine postgres --datastore-conn-uri "..." --grpc-preshared-key "..."</code></pre>
+<details class="term"><summary>マイグレーション</summary><div class="body">
+SpiceDB 自身のテーブル定義の版上げ。<code>migrate head</code> で最新へ。SpiceDB 本体の更新時は release notes がマイグレーション要否を書いている。
+</div></details>
+<p>スキーマや relationship はどの engine でも同じに見える。<b>アプリコードを変えずに memory → postgres へ差し替えられる</b>ので、学習は memory で何も失わない。</p>
+
+<h3>テスト専用サーバ — serve-testing</h3>
+<pre><code>spicedb serve-testing</code></pre>
+<p><b>preshared key ごとに独立した空の datastore</b> を割り当てる特別なサーバ。テストごとにランダムな key を使えば、1 プロセスを共有しながら完全に隔離できる。docshare の統合テスト (<code>server_test.go</code>) がこの形で、テスト 1 本 ≒ 0.5 秒に収まっている。</p>
+
+<h3>運用の入口 (紹介だけ)</h3>
+<ul>
+  <li><b>メトリクス</b>: :9090 が Prometheus 形式。ダッシュボードは Grafana などで</li>
+  <li><b>Kubernetes</b>: 公式の <b>SpiceDB Operator</b> が版上げ・マイグレーションまで面倒を見る</li>
+  <li><b>マネージド</b>: AuthZed Dedicated / Cloud。API 互換なのでアプリはそのまま</li>
+  <li>検証系のフラグは repo の実例が参考になる: tutorial/07 run.sh (ポート指定・metrics 無効化)、tutorial/08 run.sh (量子化間隔の変更)</li>
+</ul>
+<details class="term"><summary>SpiceDB Operator</summary><div class="body">
+k8s 上で SpiceDB クラスタを宣言的に管理する公式 operator。<code>SpiceDBCluster</code> リソースを書くと、ローリング更新とマイグレーションの順序を制御してくれる。
+</div></details>
+<p class="next"><a href="#ch06">次章: 06 一貫性と New Enemy 問題 →</a></p>
+
+<!-- ================================================================ 06 -->
+<h2 class="ch" id="ch06"><span class="no">06</span>一貫性と New Enemy 問題</h2>
+<div class="callout warn"><b>アプリを書く人はこの章だけは飛ばさないこと。</b> 権限「付与」の遅れは苦情で済むが、権限「剥奪」の取りこぼしは事故になる。</div>
+
+<h3>SpiceDB は少し古い世界で答えることがある</h3>
+<p>check のたびに最新データで評価すると、revision が動き続けてキャッシュ (03 章) がほぼ効かない。そこで SpiceDB は時間を一定幅 (既定 5 秒) に丸め、<b>窓の中では同じ revision を使い回す</b>。これが<b>量子化 (quantization)</b>。</p>
+<details class="term"><summary>revision</summary><div class="body">
+datastore の「その時点の全 relationship」を指す版番号。書き込みのたびに進む。check は必ずどれかの revision 上で評価される (スナップショット読み)。
+</div></details>
+<p>代償として、既定の consistency (<code>minimize_latency</code>) では<b>書き込み直後の check が、書き込み前の revision で評価されることがある</b>。この repo でも構築中に実際に踏んだ: relationship を書いた数百 ms 後の check が false を返した (ADR 002 の背景)。</p>
+
+<h3>New Enemy 問題 — 動かして見る</h3>
+<p>「少し古い」が事故になる典型を Zanzibar 論文は <b>New Enemy 問題</b>と名付けた。下のスイッチを切り替えて、同じ操作列の結末がどう変わるかを見る。</p>
+
+<div class="widget" id="enemy">
+  <div class="head">剥奪 → 新文書 → bob のアクセス。結末は? (「次へ」でメッセージが流れる)</div>
+  <div class="ctrl" style="border-bottom:1px dashed var(--line)">
+    <label class="toggle"><input type="checkbox" id="enemy-fix"> <b>ZedToken を保存して check に渡す (対策 ON)</b></label>
+    <span class="step-ind">どちらも同じ 8 手。途中で切り替えて見比べられる</span>
+  </div>
+  <div class="canvas">
+    <svg id="ne-svg" viewBox="0 0 860 560" width="100%" style="min-width:700px">
+      <defs>
+        <marker id="arr-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#b42318"/></marker>
+      </defs>
+      <g><rect class="lifehead" x="25" y="12" width="90" height="30" rx="5"/><text x="70" y="32" text-anchor="middle">alice</text></g>
+      <g><rect class="lifehead" x="225" y="12" width="90" height="30" rx="5"/><text x="270" y="32" text-anchor="middle">アプリ</text></g>
+      <g><rect class="lifehead" x="415" y="12" width="110" height="30" rx="5"/><text x="470" y="32" text-anchor="middle">アプリ DB</text></g>
+      <g><rect class="lifehead" x="600" y="12" width="100" height="30" rx="5"/><text x="650" y="32" text-anchor="middle">SpiceDB</text></g>
+      <g><rect class="lifehead" x="770" y="12" width="80" height="30" rx="5"/><text x="810" y="32" text-anchor="middle">bob</text></g>
+      <g id="ne-lines"></g>
+      <g id="ne-msgs"></g>
+    </svg>
+  </div>
+  <div class="narr" id="enemy-narr"></div>
+  <div class="ctrl">
+    <button id="enemy-prev">← 前へ</button>
+    <button id="enemy-next">次へ →</button>
+    <span class="step-ind" id="enemy-ind"></span>
+  </div>
+</div>
+
+<p>順序が保存されないことが本質で、キャッシュを持つ認可システムはどれもこの問題と向き合うことになる。</p>
+
+<h3>ZedToken — 「この時点以降で評価して」という栞</h3>
+<p>SpiceDB のすべての書き込み (WriteRelationships / DeleteRelationships / WriteSchema) は <b>ZedToken</b> を返す。以後の読みにこれを添えると「<b>少なくともこの書き込みを含む世界で評価せよ</b>」と要求できる。定石は「<b>資源の行に ZedToken を 1 列足す</b>」。</p>
+<ol>
+  <li>文書の ACL を変えたら、返ってきた ZedToken を文書の行に保存</li>
+  <li>その文書の check では <code>at_least_as_fresh(保存した token)</code> を渡す</li>
+</ol>
+<p>これで「その資源について自分が知っている最新」より古い世界では評価されない。実装は docshare の <code>internal/store</code> がそのまま。</p>
+<details class="term"><summary>高水位トークン</summary><div class="body">
+<p>「資源の行に保存」した token は、<b>資源が特定できる読み</b>にしか渡せない。一覧 (LookupResources) や、行を持たない資源の check (docshare のフォルダ) には取り出す行が無い。そこで docshare は「プロセスが最後に見た ZedToken」を 1 つだけ別に覚えている。これが<b>高水位トークン</b> (<code>store.lastZedToken</code>)。水位が上がっていく様子を動かして見る。</p>
+
+<div class="widget" id="hw">
+  <div class="head">高水位トークン — 書き込みのたびに水位が上がる</div>
+  <div class="canvas">
+    <svg viewBox="0 0 860 240" width="100%" style="min-width:700px">
+      <!-- 見える範囲の帯 (読みのステップで出る) -->
+      <rect class="hwband" id="hw-band" x="390" y="30" width="440" height="150" rx="6"/>
+      <!-- revision の軸 -->
+      <line class="hwaxis" x1="60" y1="172" x2="825" y2="172"/>
+      <g class="hwtick">
+        <line x1="110" y1="167" x2="110" y2="177"/><text class="hwtick-label" x="110" y="194" text-anchor="middle">r1</text><text class="hwtick-event" x="110" y="210" text-anchor="middle">seed (外部)</text>
+        <line x1="250" y1="167" x2="250" y2="177"/><text class="hwtick-label" x="250" y="194" text-anchor="middle">r2</text><text class="hwtick-event" x="250" y="210" text-anchor="middle">起動 schema</text>
+        <line x1="390" y1="167" x2="390" y2="177"/><text class="hwtick-label" x="390" y="194" text-anchor="middle">r3</text><text class="hwtick-event" x="390" y="210" text-anchor="middle">roadmap 作成</text>
+        <line x1="530" y1="167" x2="530" y2="177"/><text class="hwtick-label" x="530" y="194" text-anchor="middle">r5</text><text class="hwtick-event" x="530" y="210" text-anchor="middle">design 共有</text>
+        <line x1="670" y1="167" x2="670" y2="177"/><text class="hwtick-label" x="670" y="194" text-anchor="middle">r6</text><text class="hwtick-event" x="670" y="210" text-anchor="middle">design 剥奪</text>
+      </g>
+      <circle cx="110" cy="172" r="4" fill="#98a2b3"/>
+      <!-- token チップ (JS が transform で動かす) -->
+      <g class="chip" id="hw-chip"><rect x="-70" y="0" width="140" height="24" rx="12" fill="#e6f4ea" stroke="#1a7f37"/><text id="hw-chip-t" x="0" y="16" text-anchor="middle" fill="#1a7f37">高水位 = r2</text><line x1="0" y1="24" x2="0" y2="132" stroke="#1a7f37"/></g>
+      <g class="chip" id="hw-dchip"><rect x="-70" y="0" width="140" height="24" rx="12" fill="#eef2ff" stroke="#4f46e5"/><text id="hw-dchip-t" x="0" y="16" text-anchor="middle" fill="#4f46e5">design の行 = r5</text><line x1="0" y1="24" x2="0" y2="90" stroke="#4f46e5"/></g>
+      <g class="chip" id="hw-rchip"><rect x="-74" y="0" width="148" height="24" rx="12" fill="#f2f4f7" stroke="#667085"/><text id="hw-rchip-t" x="0" y="16" text-anchor="middle" fill="#3f4854">roadmap の行 = r3</text><line x1="0" y1="24" x2="0" y2="48" stroke="#667085"/></g>
+    </svg>
+  </div>
+  <div class="narr" id="hw-narr"></div>
+  <div class="ctrl">
+    <button id="hw-prev">← 前へ</button>
+    <button id="hw-next">次へ →</button>
+    <span class="step-ind" id="hw-ind"></span>
+  </div>
+</div>
+
+<ul>
+  <li><b>行の token は「その資源の最後の ACL 変更」で止まる。</b> roadmap の行が r3 のままでよいのは、その後の書き込み (r5, r6) が roadmap の見え方に関係ないから。資源ごとの必要最小限で、古い revision を許すぶんキャッシュにも優しい</li>
+  <li><b>高水位は上がるだけ。</b> どの書き込みでも更新するので、「このプロセスが行った / 観測した書き込み全部」を覆う上限になる</li>
+</ul>
+<table>
+  <tr><th>読み</th><th>渡す token</th><th>保証されること</th></tr>
+  <tr><td><code>GET /documents/roadmap</code></td><td>roadmap の行 (r3)</td><td>roadmap の ACL 変更は必ず見える</td></tr>
+  <tr><td><code>GET /documents</code> (一覧)</td><td>高水位 (r6)</td><td>プロセスが知る書き込み全部が見える</td></tr>
+</table>
+<p>初期値は起動時 <code>WriteSchema</code> の返り値 (図の r2)。起動より前に外 (run.sh の seed) で書かれた分は r2 より古い revision なので、これで覆われる (<code>store.ObserveZedToken</code>、ADR 002)。</p>
+<p><b>限界も知っておく。</b>高水位は「自分が見たもの」の最大値なので、<b>別プロセスが書いた relationship は覆えない</b> (見ていない token は水位に入らない)。その分は量子化の窓ぶん遅れて見える (minimize_latency と同じ扱い)。複数プロセスの間でも確実にしたい資源は、token を共有 DB の行に置く — つまり定石 (資源の行に保存) に戻る。</p>
+</div></details>
+
+<h3>consistency は 4 段階</h3>
+<table>
+  <tr><th>指定</th><th>意味</th><th>使いどころ</th></tr>
+  <tr><td><code>minimize_latency</code> (既定)</td><td>量子化された revision でよい</td><td>大半の読み。速くてキャッシュが効く</td></tr>
+  <tr><td><code>at_least_as_fresh(token)</code></td><td>token 以上に新しい世界で</td><td><b>定石</b>。資源に保存した token を渡す</td></tr>
+  <tr><td><code>at_exact_snapshot(token)</code></td><td>ちょうどその時点で</td><td>ページネーション整合・監査の再現</td></tr>
+  <tr><td><code>fully_consistent</code></td><td>常に最新</td><td>剥奪を 1 秒も漏らせない画面。高くつく</td></tr>
+</table>
+<details class="term"><summary>at_exact_snapshot の失効</summary><div class="body">
+datastore の GC 窓 (既定 24h 程度) を過ぎた revision を指すとエラーになる。ZedToken は「しばらく有効な栞」で、永久保存する類のものではない。at_least_as_fresh は古い token を渡しても「それ以上新しい」だけなので害がない。
+</div></details>
+<details class="term"><summary>fully_consistent の値段</summary><div class="body">
+常に最新 revision で評価する = revision キャッシュの再利用がほぼ効かない。1 回のコストではなくシステム全体のキャッシュ命中率を下げる点が高くつく。「全部 fully にすれば安全」は、SpiceDB を選んだ理由 (速さ) を捨てる選択。
+</div></details>
+
+<h3>体験する</h3>
+<ul>
+  <li><code>tutorial/08</code> — 量子化を 8 秒に広げ、「剥奪直後でも at-exactly なら true / at-least なら必ず false」を実際に見る</li>
+  <li>docshare の統合テスト — 「unshare 直後の GET が 404」が決定的に通るのは ZedToken の保存があるから</li>
+</ul>
+<p class="next"><a href="#ch07">次章: 07 アプリへの組み込み →</a></p>
+
+<!-- ================================================================ 07 -->
+<h2 class="ch" id="ch07"><span class="no">07</span>アプリへの組み込み</h2>
+<p class="lead">総仕上げ。docshare を解剖しながら、SpiceDB をアプリに組み込むときの判断を一つずつ言葉にする。</p>
+
+<h3>責務の分担</h3>
+<table>
+  <tr><th>持ち物</th><th>置き場所</th></tr>
+  <tr><td>文書の中身 (title / body)</td><td>アプリの DB (docshare ではインメモリ store)</td></tr>
+  <tr><td>誰がどう関わるか</td><td>SpiceDB の relationship</td></tr>
+  <tr><td>誰が何をできるか (規則)</td><td>SpiceDB のスキーマ</td></tr>
+  <tr><td>誰なのか (認証)</td><td>認証基盤 (docshare では <code>X-User</code> で省略。OAuth / OIDC との切り分けは 00 章のコラム)</td></tr>
+</table>
+<p>アプリのハンドラには権限の if 文を書かない。「この操作の可否は SpiceDB のどの permission か」だけを決める。共有 → 直後の閲覧、の流れはこう動く。</p>
+<div class="widget">
+  <div class="head">docshare — 共有から閲覧まで (ZedToken の保存が肝)</div>
+  <ol class="timeline" style="padding:12px 20px">
+    <li class="show"><span class="who">alice</span> POST /documents/design/share {user:carol, viewer}</li>
+    <li class="show">httpapi → SpiceDB: <code>Check(design, share, alice, at_least_as_fresh t0)</code> → HAS_PERMISSION</li>
+    <li class="show">httpapi → SpiceDB: <code>WriteRelationships (TOUCH viewer carol)</code> → <span class="tok">ZedToken t1</span></li>
+    <li class="show good">store: design の行に <span class="tok">t1</span> を保存 ← ここが肝</li>
+    <li class="show"><span class="who">carol</span> GET /documents/design (直後)</li>
+    <li class="show">httpapi: store から design を取り出し (ZedToken=<span class="tok">t1</span>)、<code>Check(design, view, carol, at_least_as_fresh <span class="tok">t1</span>)</code></li>
+    <li class="show goodend">t1 以上に新しい世界で評価 → 共有が必ず見える → 200。剥奪 (unshare) も同じ形で、直後から必ず 404</li>
+  </ol>
+</div>
+
+<h3>読み (check) の置き方</h3>
+<ul>
+  <li><b>ハンドラの入口で 1 回 check</b> が基本形。docshare は <code>GET /documents/{id}</code> → <code>document#view</code>、<code>PUT</code> → <code>edit</code>、共有系 → <code>share</code></li>
+  <li><b>403 と 404 を設計する</b>: view の無い人には 404 (存在ごと隠す)、view はあるが edit が無い人には 403。この出し分け自体が認可の仕様</li>
+  <li>画面の出し分けなどで check が束になるなら <code>CheckBulkPermissions</code></li>
+</ul>
+<details class="term"><summary>ミドルウェアで check しない理由</summary><div class="body">
+check には資源 ID と permission が要り、それは大抵ルーティング後に決まる。「認証はミドルウェア、認可はハンドラ冒頭」が収まりがよい。資源 ID がパスから機械的に取れる設計なら、認可もミドルウェアに寄せられる。
+</div></details>
+
+<h3>一覧は逆引き API で</h3>
+<p>「自分が見られる文書一覧」は LookupResources に聞き、返ってきた ID でアプリ DB から本体をまとめて引く (docshare の <code>GET /documents</code>)。全件取得して 1 件ずつ check する N+1 に落ちないこと。件数が大きいなら <code>OptionalLimit</code> + カーソルでページングし、並び順や検索と混ぜたい場合は「ID 集合を WHERE IN に混ぜる」形になる。</p>
+
+<h3>書き込みの作法</h3>
+<p>資源の作成は「アプリ DB への保存」と「relationship の書き込み」の 2 つの書き込みになる。</p>
+<pre><code>1. 権限 check (folder#create_document)
+2. SpiceDB へ WriteRelationships (owner, parent)   → ZedToken が返る
+3. アプリ DB へ保存 (ZedToken も一緒に)</code></pre>
+<details class="term"><summary>二重書き込み問題</summary><div class="body">
+<p>2 と 3 はトランザクションで括れないので、間で落ちるとズレる。落ちたら何が残るかを動かして見る。</p>
+
+<div class="widget" id="dw">
+  <div class="head">2 つの書き込みの間で落ちたら</div>
+  <div class="canvas">
+    <svg viewBox="0 0 860 270" width="100%" style="min-width:700px">
+      <line class="lifeline" x1="150" y1="42" x2="150" y2="258"/>
+      <line class="lifeline" x1="430" y1="42" x2="430" y2="258"/>
+      <line class="lifeline" x1="700" y1="42" x2="700" y2="258"/>
+      <g><rect class="lifehead" x="105" y="12" width="90" height="30" rx="5"/><text x="150" y="32" text-anchor="middle">アプリ</text></g>
+      <g><rect class="lifehead" x="380" y="12" width="100" height="30" rx="5"/><text x="430" y="32" text-anchor="middle">SpiceDB</text></g>
+      <g><rect class="lifehead" x="645" y="12" width="110" height="30" rx="5"/><text x="700" y="32" text-anchor="middle">アプリ DB</text></g>
+      <g class="msg" id="dw0"><path d="M150 70 H422"/><text x="162" y="63">① WriteRelationships (owner / parent を TOUCH)</text></g>
+      <g class="msg ret tok" id="dw1"><path d="M430 102 H158"/><text x="230" y="95">ZedToken t</text></g>
+      <g class="msg bad" id="dw2"><path d="M150 134 H640"/><text x="162" y="127">② 本体を保存 … の前にプロセスが落ちた</text><text x="660" y="139" style="font-size:16px">✗</text></g>
+      <g class="msg" id="dw3"><path d="M150 166 H422"/><text x="162" y="159">①' 同じ TOUCH をもう一度 (冪等)</text></g>
+      <g class="msg ret tok" id="dw4"><path d="M430 198 H158"/><text x="230" y="191">ZedToken t'</text></g>
+      <g class="msg good" id="dw5"><path d="M150 230 H692"/><text x="162" y="223">②' 本体を保存 (成功)</text></g>
+    </svg>
+  </div>
+  <div class="narr" id="dw-narr"></div>
+  <div class="ctrl">
+    <button id="dw-prev">← 前へ</button>
+    <button id="dw-next">次へ →</button>
+    <span class="step-ind" id="dw-ind"></span>
+  </div>
+</div>
+
+<p>対策は段階がある:</p>
+<ol>
+<li><b>順序を決める</b>: 先に SpiceDB、後にアプリ DB。孤児になるのは「参照されない relationship」で、逆 (権限の無い行) より安全</li>
+<li><b>冪等にして再試行</b>: TOUCH は冪等なので、作成 API 全体を再試行可能にする</li>
+<li><b>突き合わせ</b>: 定期ジョブで両者を突き合わせて掃除 (リコンサイル)、または DB のトランザクションに書き込み予定を積んで非同期反映 (outbox)</li>
+</ol>
+docshare は 1 と 2 の途中まで。教材なので「問題がある」と明示する側に倒した (該当コードのコメント参照)。
+</div></details>
+<details class="term"><summary>SoT (Source of Truth)</summary><div class="body">
+「その事実の正本はどこか」。関係の出どころがアプリ操作 (共有ボタン) なら SpiceDB を関係の SoT にしてよい。出どころが別システム (人事 DB のグループなど) ならそちらが SoT で、SpiceDB へは同期して<b>写しを置く</b>ことになる。何が正本かを 1 つずつ決めておくと、ズレたときどちらへ寄せるかで迷わない。
+</div></details>
+
+<h3>剥奪を取りこぼさない (06 章の実装)</h3>
+<ul>
+  <li>書き込みが返す <b>ZedToken を資源の行に保存</b>、その資源の check で <code>at_least_as_fresh</code> — <code>store.go</code> の主題</li>
+  <li>資源に紐づかない読み (一覧、フォルダ check) は高水位トークン</li>
+  <li>caveat の <code>current_time</code> は<b>必ずアプリが渡す</b>。ラッパ (<code>authz.go</code>) に閉じ込めて渡し忘れを防ぐ</li>
+</ul>
+
+<h3>スキーマ変更の運用</h3>
+<ul>
+  <li>スキーマは repo で管理し、<code>zed schema write</code> は <b>CI (マイグレーション) から</b>流す。docshare は起動時に書いているが、これはデモ用の妥協 (コメントに明記)</li>
+  <li>変更は<b>後方互換の順序</b>で: relation を消すときは、先に permission の式から外し、参照ゼロを確認してから relation とデータを消す</li>
+  <li>スキーマの隣の validate.yaml を必ず更新する (04 章)。「見られてはいけない」側の assertion が事故を検知する</li>
+</ul>
+
+<h3>テスト戦略</h3>
+<table>
+  <tr><th>層</th><th>道具</th><th>この repo での実例</th></tr>
+  <tr><td>スキーマ単体</td><td><code>zed validate</code></td><td>各 tutorial 章、<code>app/schema/validate.yaml</code></td></tr>
+  <tr><td>アプリ統合</td><td><code>spicedb serve-testing</code></td><td><code>server_test.go</code></td></tr>
+</table>
+<p>serve-testing は preshared key ごとに独立 datastore なので、テストの並列実行も後片付けも考えなくてよい。モックは作らない — 認可の正しさはスキーマと SpiceDB の意味論に依存していて、モックだとその部分ごと偽物になるから。</p>
+
+<h3>ここまで来たら</h3>
+<ul>
+  <li>公式ドキュメント (https://authzed.com/docs) がリファレンスとして読めるようになっている</li>
+  <li>スキーマ設計の引き出しを増やすなら公式の例 (Google Drive / GitHub / Slack 相当) を <code>zed validate</code> に写して崩してみるのが速い</li>
+  <li>本番導入の残件は運用側: datastore 選定 (05 章)、監視、スキーマ CI、そして 06 章の一貫性方針をチームの言葉にすること</li>
+</ul>
+<div class="callout ok">おつかれさまでした。手を動かす側の対 (<code>tutorial/</code>) と応用 (<code>app/</code>) が repo にある。</div>
+
+</div></main>
+</div>
+
+<script>
+// ---------------- check-walk stepper ----------------
+(function () {
+  const steps = [
+    {
+      narr: "問い: bob は document:design を view できるか? — view = (viewer + shared_viewer + edit + parent->view) - banned。この式のサブ問題を順に見ていく。",
+      nodes: { "w-design": "hl-q" }, edges: {}
+    },
+    {
+      narr: "直接の viewer / shared_viewer / edit に bob はいない。残るは parent->view。arrow は parent 関係の先 (folder:eng-docs) で view を評価する「新しいサブ問題」を作る。",
+      nodes: { "w-design": "hl-q", "w-engdocs": "hl-q" }, edges: { "e-parent1": "hl-q" }
+    },
+    {
+      narr: "folder:eng-docs の viewer は group:eng#member という「集合」。集合は個人に潰されず、チェック時に member を展開してたどる。",
+      nodes: { "w-engdocs": "hl-q", "w-eng": "hl-q" }, edges: { "e-parent1": "hl-q", "e-viewer": "hl-q" }
+    },
+    {
+      narr: "group:eng の member に bob がいた。経路 design → eng-docs → eng#member → bob が存在する → HAS_PERMISSION (true)。この経路は zed permission check --explain でそのまま見られる。",
+      nodes: { "w-design": "hl-ok", "w-engdocs": "hl-ok", "w-eng": "hl-ok", "w-bob": "hl-ok" },
+      edges: { "e-parent1": "hl-ok", "e-viewer": "hl-ok", "e-member": "hl-ok" }
+    }
+  ];
+  let i = 0;
+  const narr = document.getElementById("walk-narr");
+  const ind = document.getElementById("walk-ind");
+  const prev = document.getElementById("walk-prev");
+  const next = document.getElementById("walk-next");
+  const allNodes = ["w-design", "w-engdocs", "w-root", "w-eng", "w-alice", "w-bob"];
+  const allEdges = ["e-parent1", "e-parent2", "e-viewer", "e-owner", "e-member"];
+  function render() {
+    const s = steps[i];
+    allNodes.forEach(id => {
+      const el = document.getElementById(id);
+      el.classList.remove("hl-q", "hl-ok");
+      if (s.nodes[id]) el.classList.add(s.nodes[id]);
+    });
+    allEdges.forEach(id => {
+      const el = document.getElementById(id);
+      el.classList.remove("hl-q", "hl-ok");
+      if (s.edges[id]) el.classList.add(s.edges[id]);
+    });
+    narr.textContent = s.narr;
+    ind.textContent = "手順 " + (i + 1) + " / " + steps.length;
+    prev.disabled = i === 0;
+    next.disabled = i === steps.length - 1;
+  }
+  prev.onclick = () => { if (i > 0) { i--; render(); } };
+  next.onclick = () => { if (i < steps.length - 1) { i++; render(); } };
+  render();
+})();
+
+// ---------------- subproblem cache stepper ----------------
+(function () {
+  const steps = [
+    {
+      narr: "① Check(document:design, view, user:bob) を受け取る。design の直接の viewer / shared_viewer / edit に bob はいない。",
+      nodes: { "c-design": "hl-q" }, edges: {}, cache: "empty"
+    },
+    {
+      narr: "arrow (parent->view) がサブ問題「folder:eng-docs を view できるか?」を作る。キャッシュにはまだ何も無いので、解きに行く。",
+      nodes: { "c-design": "hl-q", "c-engdocs": "hl-q" }, edges: { "ce-p1": "hl-q" }, cache: "empty"
+    },
+    {
+      narr: "サブ問題を解く: viewer は group:eng#member。member をたどって bob に届き true。この答えを revision 付きでキャッシュへ書き、① の結論も true。",
+      nodes: { "c-design": "hl-ok", "c-engdocs": "hl-ok", "c-eng": "hl-ok", "c-bob": "hl-ok" },
+      edges: { "ce-p1": "hl-ok", "ce-viewer": "hl-ok", "ce-member": "hl-ok" }, cache: "on"
+    },
+    {
+      narr: "② Check(document:roadmap, view, user:bob)。roadmap の直接の viewer にも bob はいない → arrow で「folder:eng-docs を view できるか?」— さっきと同じサブ問題に行き着く。",
+      nodes: { "c-roadmap": "hl-q", "c-engdocs": "hl-q" }, edges: { "ce-p2": "hl-q" }, cache: "on"
+    },
+    {
+      narr: "キャッシュ命中 (青)。folder:eng-docs#view@bob は解決済みなので、group の展開 (グラフの右半分) はもう歩かない。② の結論は即 true。",
+      nodes: { "c-roadmap": "hl-ok", "c-engdocs": "hl-cache" }, edges: { "ce-p2": "hl-ok" }, cache: "hit"
+    },
+    {
+      narr: "キャッシュのキーは revision 込み。量子化 (06 章) が「同じ revision」を窓の間使い回すのは、この命中率を保つため。フォルダ内の一覧で N 枚 check しても、フォルダ側の評価は 1 回で済む。",
+      nodes: { "c-roadmap": "hl-ok", "c-engdocs": "hl-cache" }, edges: { "ce-p2": "hl-ok" }, cache: "hit"
+    }
+  ];
+  let i = 0;
+  const allNodes = ["c-design", "c-roadmap", "c-engdocs", "c-eng", "c-bob"];
+  const allEdges = ["ce-p1", "ce-p2", "ce-viewer", "ce-member"];
+  const narr = document.getElementById("cw-narr");
+  const ind = document.getElementById("cw-ind");
+  const prev = document.getElementById("cw-prev");
+  const next = document.getElementById("cw-next");
+  const entry = document.getElementById("cw-entry");
+  function render() {
+    const s = steps[i];
+    allNodes.forEach(id => {
+      const el = document.getElementById(id);
+      el.classList.remove("hl-q", "hl-ok", "hl-cache");
+      if (s.nodes[id]) el.classList.add(s.nodes[id]);
+    });
+    allEdges.forEach(id => {
+      const el = document.getElementById(id);
+      el.classList.remove("hl-q", "hl-ok");
+      if (s.edges[id]) el.classList.add(s.edges[id]);
+    });
+    if (s.cache === "empty") {
+      entry.className = "entry off";
+      entry.textContent = "(まだ空)";
+    } else {
+      entry.className = "entry" + (s.cache === "hit" ? " hit" : "");
+      entry.textContent = "folder:eng-docs#view@user:bob = ✓  (rev r7)";
+    }
+    narr.textContent = s.narr;
+    ind.textContent = "手順 " + (i + 1) + " / " + steps.length;
+    prev.disabled = i === 0;
+    next.disabled = i === steps.length - 1;
+  }
+  prev.onclick = () => { if (i > 0) { i--; render(); } };
+  next.onclick = () => { if (i < steps.length - 1) { i++; render(); } };
+  render();
+})();
+
+// ---------------- new enemy sequence stepper ----------------
+(function () {
+  const NS = "http://www.w3.org/2000/svg";
+  const X = { alice: 70, app: 270, db: 470, sp: 650, bob: 810 };
+
+  // 対策 OFF: token を捨てるアプリ
+  const msgsOff = [
+    { f: "alice", t: "app", label: "① bob をフォルダから外して", kind: "call" },
+    { f: "app",   t: "sp",  label: "WriteRelationships(DELETE folder#viewer@bob)", kind: "call" },
+    { f: "sp",    t: "app", label: "ZedToken t1 (受け取るが保存しない)", kind: "ret" },
+    { f: "alice", t: "app", label: "② 機密文書 secret をフォルダに置く", kind: "call" },
+    { f: "app",   t: "sp",  label: "WriteRelationships(CREATE secret#parent 他)", kind: "call" },
+    { f: "sp",    t: "app", label: "ZedToken t2 (これも捨てる)", kind: "ret" },
+    { f: "bob",   t: "app", label: "③ GET /documents/secret", kind: "call" },
+    { f: "app",   t: "sp",  label: "Check(secret, view, bob) — consistency 指定なし", kind: "call" },
+    { f: "sp",    t: "app", label: "true (①②より前の世界で評価)", kind: "ret", cls: "bad" },
+    { f: "app",   t: "bob", label: "200 — 見えてしまう", kind: "ret", cls: "bad" }
+  ];
+  const stepsOff = [
+    { show: [0, 1], narr: "① alice が bob をフォルダから外す。アプリは DELETE を SpiceDB へ書く。" },
+    { show: [2],    narr: "書き込みの返り値として ZedToken t1 が返ってくる — が、このアプリは保存しない。これが後で効いてくる。" },
+    { show: [3, 4], narr: "② alice が「bob に見せたくない」機密文書 secret を同じフォルダに置く。" },
+    { show: [5],    narr: "t2 も返ってくるが、同じく捨てる。" },
+    { show: [6],    narr: "③ 直後に bob が GET /documents/secret。" },
+    { show: [7],    narr: "アプリは Check を consistency 指定なし (minimize_latency) で投げる。" },
+    { show: [8],    narr: "SpiceDB は量子化窓の中の古い revision — ①②が起きる前の世界 — で評価してしまう。bob がまだ viewer だった世界なので true。" },
+    { show: [9],    narr: "200 — 見えてしまう。剥奪がその後の check に追い越された。これが New Enemy 問題。" }
+  ];
+
+  // 対策 ON: token を「ACL が変わったオブジェクトの行」に保存するアプリ
+  const msgsOn = [
+    { f: "alice", t: "app", label: "① bob をフォルダから外して", kind: "call" },
+    { f: "app",   t: "sp",  label: "WriteRelationships(DELETE folder#viewer@bob)", kind: "call" },
+    { f: "sp",    t: "app", label: "ZedToken t1", kind: "ret", cls: "tok" },
+    { f: "app",   t: "db",  label: "フォルダの行に t1 を保存", kind: "call", cls: "tok" },
+    { f: "alice", t: "app", label: "② 機密文書 secret をフォルダに置く", kind: "call" },
+    { f: "app",   t: "sp",  label: "WriteRelationships(CREATE secret#parent 他)", kind: "call" },
+    { f: "sp",    t: "app", label: "ZedToken t2", kind: "ret", cls: "tok" },
+    { f: "app",   t: "db",  label: "secret の行に t2 を保存", kind: "call", cls: "tok" },
+    { f: "bob",   t: "app", label: "③ GET /documents/secret", kind: "call" },
+    { f: "app",   t: "db",  label: "secret の行を読む", kind: "call" },
+    { f: "db",    t: "app", label: "本体 + t2", kind: "ret", cls: "tok" },
+    { f: "app",   t: "sp",  label: "Check(secret, view, bob) at_least_as_fresh(t2)", kind: "call", cls: "tok" },
+    { f: "sp",    t: "app", label: "false (t2 の世界には剥奪①も含まれる)", kind: "ret", cls: "good" },
+    { f: "app",   t: "bob", label: "404 — 漏れない", kind: "ret", cls: "good" }
+  ];
+  const stepsOn = [
+    { show: [0, 1],  narr: "① alice が bob をフォルダから外す。アプリは DELETE を SpiceDB へ書く。" },
+    { show: [2, 3],  narr: "ZedToken t1 が返る。ACL が変わったのはフォルダなので、フォルダの行に t1 を保存する。" },
+    { show: [4, 5],  narr: "② 機密文書 secret を置く。" },
+    { show: [6, 7],  narr: "t2 が返る。今度は文書 secret の行に保存する (docshare の store.Document.ZedToken がこの列)。" },
+    { show: [8],     narr: "③ 直後に bob が GET /documents/secret。" },
+    { show: [9, 10], narr: "アプリはまず secret の行を読む。本体と一緒に、保存しておいた t2 が手に入る。" },
+    { show: [11],    narr: "Check に at_least_as_fresh(t2) を添える。②は①の後の書き込みなので、t2 の世界には剥奪①も必ず含まれる。" },
+    { show: [12, 13], narr: "false → 404。剥奪が check に追い越されない。" }
+  ];
+
+  const svg = document.getElementById("ne-svg");
+  const linesG = document.getElementById("ne-lines");
+  const msgsG = document.getElementById("ne-msgs");
+  const fix = document.getElementById("enemy-fix");
+  const narr = document.getElementById("enemy-narr");
+  const ind = document.getElementById("enemy-ind");
+  const prev = document.getElementById("enemy-prev");
+  const next = document.getElementById("enemy-next");
+  let i = 0;
+
+  function build() {
+    const msgs = fix.checked ? msgsOn : msgsOff;
+    const bottom = 70 + msgs.length * 32 + 6;
+    svg.setAttribute("viewBox", "0 0 860 " + (bottom + 12));
+    linesG.innerHTML = "";
+    Object.values(X).forEach(x => {
+      const l = document.createElementNS(NS, "line");
+      l.setAttribute("class", "lifeline");
+      l.setAttribute("x1", x); l.setAttribute("x2", x);
+      l.setAttribute("y1", 42); l.setAttribute("y2", bottom);
+      linesG.appendChild(l);
+    });
+    msgsG.innerHTML = "";
+    msgs.forEach((m, k) => {
+      const y = 70 + k * 32;
+      const g = document.createElementNS(NS, "g");
+      g.setAttribute("class", "msg" + (m.kind === "ret" ? " ret" : "") + (m.cls ? " " + m.cls : ""));
+      const p = document.createElementNS(NS, "path");
+      const x1 = X[m.f], x2 = X[m.t];
+      p.setAttribute("d", "M" + x1 + " " + y + " H" + (x2 > x1 ? x2 - 8 : x2 + 8));
+      g.appendChild(p);
+      const t = document.createElementNS(NS, "text");
+      t.setAttribute("x", Math.min(x1, x2) + 12);
+      t.setAttribute("y", y - 7);
+      t.textContent = m.label;
+      g.appendChild(t);
+      msgsG.appendChild(g);
+    });
+  }
+
+  function render() {
+    const steps = fix.checked ? stepsOn : stepsOff;
+    if (i > steps.length - 1) i = steps.length - 1;
+    const shown = new Set();
+    for (let k = 0; k <= i; k++) steps[k].show.forEach(n => shown.add(n));
+    const cur = new Set(steps[i].show);
+    Array.from(msgsG.children).forEach((el, n) => {
+      el.classList.toggle("shown", shown.has(n));
+      el.classList.toggle("cur", cur.has(n));
+    });
+    narr.textContent = steps[i].narr;
+    ind.textContent = "手順 " + (i + 1) + " / " + steps.length;
+    prev.disabled = i === 0;
+    next.disabled = i === steps.length - 1;
+  }
+
+  prev.onclick = () => { if (i > 0) { i--; render(); } };
+  next.onclick = () => { i++; render(); };
+  // どちらのモードも同じ 8 手なので、途中で切り替えても同じ手番のまま比べられる
+  fix.onchange = () => { build(); render(); };
+  build();
+  render();
+})();
+
+// ---------------- dual-write stepper ----------------
+(function () {
+  const steps = [
+    { show: ["dw0"], narr: "文書作成は 2 つの書き込みになる。まず SpiceDB へ owner / parent を TOUCH する (SpiceDB が先)。" },
+    { show: ["dw1"], narr: "ZedToken t が返る。次はアプリ DB へ本体を保存する番。" },
+    { show: ["dw2"], narr: "その前にプロセスが落ちた。残るのは①だけ = 本体の無い文書への relationship (孤児)。誰の画面にも出ないゴミで済む。逆順 (DB が先) だと「本体はあるのに誰の権限も無い行」が残り、作れたはずの文書がユーザーから消える — だから SpiceDB が先。" },
+    { show: ["dw3"], narr: "復旧は再試行。TOUCH は冪等 (あってもなくても最終的にある) なので、同じ書き込みを何度投げても安全。" },
+    { show: ["dw4"], narr: "t' が返る。" },
+    { show: ["dw5"], narr: "今度は保存まで成功。作成 API 全体を再試行可能にしておけば、孤児は次の試行で回収される。それでも残る分は、定期の突き合わせ (リコンサイル) か outbox で拾う。" }
+  ];
+  let i = 0;
+  const all = ["dw0", "dw1", "dw2", "dw3", "dw4", "dw5"];
+  const narr = document.getElementById("dw-narr");
+  const ind = document.getElementById("dw-ind");
+  const prev = document.getElementById("dw-prev");
+  const next = document.getElementById("dw-next");
+  function render() {
+    const shown = new Set();
+    for (let k = 0; k <= i; k++) steps[k].show.forEach(id => shown.add(id));
+    const cur = new Set(steps[i].show);
+    all.forEach(id => {
+      const el = document.getElementById(id);
+      el.classList.toggle("shown", shown.has(id));
+      el.classList.toggle("cur", cur.has(id));
+    });
+    narr.textContent = steps[i].narr;
+    ind.textContent = "手順 " + (i + 1) + " / " + steps.length;
+    prev.disabled = i === 0;
+    next.disabled = i === steps.length - 1;
+  }
+  prev.onclick = () => { if (i > 0) { i--; render(); } };
+  next.onclick = () => { if (i < steps.length - 1) { i++; render(); } };
+  render();
+})();
+
+// ---------------- high-water token stepper ----------------
+(function () {
+  const RX = { r1: 110, r2: 250, r3: 390, r5: 530, r6: 670 };
+  const LANE = { hw: 40, d: 82, r: 124 };
+  const steps = [
+    { narr: "起動前: 外部 (run.sh の zed) が seed を書いた世界 (r1)。アプリのプロセスはまだ何も知らない。",
+      hw: null, d: null, r: null, band: null, cur: null },
+    { narr: "起動。WriteSchema の返り値 r2 を高水位の初期値にする (store.ObserveZedToken)。r1 ≤ r2 なので、起動前の seed はこの時点で覆われている。",
+      hw: "r2", d: null, r: null, band: null, cur: "hw" },
+    { narr: "roadmap を作成 → ZedToken r3。roadmap の行に r3 を保存し、高水位も r3 へ上がる。",
+      hw: "r3", d: null, r: "r3", band: null, cur: null },
+    { narr: "design を共有 → r5。design の行に r5、高水位も r5 へ。",
+      hw: "r5", d: "r5", r: "r3", band: null, cur: null },
+    { narr: "design の共有を剥奪 → r6。design の行と高水位は r6 へ。roadmap の行は r3 のまま止まる — その資源の ACL はそれ以降変わっていないから、それで十分。",
+      hw: "r6", d: "r6", r: "r3", band: null, cur: "r" },
+    { narr: "読み①: GET /documents/roadmap。資源が特定できるので roadmap の行の r3 を渡す。「r3 以降の世界 (青い帯)」で評価されれば、roadmap の ACL 変更は必ず見えている。",
+      hw: "r6", d: "r6", r: "r3", band: ["r3", "on-blue"], cur: "r" },
+    { narr: "読み②: GET /documents (一覧)。どの行にも紐づかないので高水位 r6 を渡す。「r6 以降の世界 (緑の帯)」= このプロセスが知る書き込み全部を覆う。",
+      hw: "r6", d: "r6", r: "r3", band: ["r6", "on-green"], cur: "hw" }
+  ];
+  let i = 0;
+  const chips = {
+    hw: { g: document.getElementById("hw-chip"), t: document.getElementById("hw-chip-t"), label: "高水位 = " },
+    d: { g: document.getElementById("hw-dchip"), t: document.getElementById("hw-dchip-t"), label: "design の行 = " },
+    r: { g: document.getElementById("hw-rchip"), t: document.getElementById("hw-rchip-t"), label: "roadmap の行 = " }
+  };
+  const band = document.getElementById("hw-band");
+  const narr = document.getElementById("hw-narr");
+  const ind = document.getElementById("hw-ind");
+  const prev = document.getElementById("hw-prev");
+  const next = document.getElementById("hw-next");
+  function render() {
+    const s = steps[i];
+    ["hw", "d", "r"].forEach(k => {
+      const c = chips[k];
+      const rev = s[k];
+      c.g.classList.toggle("shown", rev !== null);
+      c.g.classList.toggle("cur", s.cur === k);
+      if (rev !== null) {
+        c.g.setAttribute("transform", "translate(" + RX[rev] + "," + LANE[k] + ")");
+        c.t.textContent = c.label + rev;
+      }
+    });
+    band.setAttribute("class", "hwband" + (s.band ? " " + s.band[1] : ""));
+    if (s.band) {
+      const x = RX[s.band[0]];
+      band.setAttribute("x", x);
+      band.setAttribute("width", 830 - x);
+    }
+    narr.textContent = s.narr;
+    ind.textContent = "手順 " + (i + 1) + " / " + steps.length;
+    prev.disabled = i === 0;
+    next.disabled = i === steps.length - 1;
+  }
+  prev.onclick = () => { if (i > 0) { i--; render(); } };
+  next.onclick = () => { if (i < steps.length - 1) { i++; render(); } };
+  render();
+})();
+
+// ---------------- request sequence stepper ----------------
+(function () {
+  const steps = [
+    { show: ["m1"], narr: "① bob として GET /documents/design。アプリはここで「誰か」を知っている (認証は済んでいる前提。00 章のコラム参照)。" },
+    { show: ["m2"], narr: "アプリ → SpiceDB: CheckPermission。資源 (document:design)・permission (view)・主体 (user:bob) に加え、consistency (at_least_as_fresh + 保存済み token) と caveat 用 context (current_time) を添える。" },
+    { show: ["m3"], narr: "SpiceDB が HAS_PERMISSION を返す。この中でやっているのが、上の 2 つの widget (グラフ探索とサブ問題キャッシュ)。" },
+    { show: ["m4", "m5"], narr: "許可が出てから、文書の本体をアプリ DB から取る。SpiceDB が持つのは関係だけで、本体は持っていない (この章冒頭の分担)。" },
+    { show: ["m6"], narr: "200 を返す。読みは「check → 本体」の 2 拍子。" },
+    { show: ["m7"], narr: "② alice が carol への共有を頼む。" },
+    { show: ["m8", "m9"], narr: "書きの前にも check。「alice はこの文書を共有できるか (share)」を SpiceDB に聞く。" },
+    { show: ["m10"], narr: "WriteRelationships で document:design#viewer@user:carol を 1 本 TOUCH する。" },
+    { show: ["m11"], narr: "返り値が ZedToken t1 (緑) — この書き込みを含む revision の栞。" },
+    { show: ["m12"], narr: "t1 を文書の行に保存する。次からこの文書の check は「t1 以上に新しい世界」で評価される (06 章)。" },
+    { show: ["m13"], narr: "200。書きは「check → write → token 保存」の 3 拍子。剥奪 (unshare) も同じ形なので、直後の読みから必ず反映される。" }
+  ];
+  let i = 0;
+  const all = ["m1","m2","m3","m4","m5","m6","m7","m8","m9","m10","m11","m12","m13"];
+  const narr = document.getElementById("rs-narr");
+  const ind = document.getElementById("rs-ind");
+  const prev = document.getElementById("rs-prev");
+  const next = document.getElementById("rs-next");
+  function render() {
+    const shown = new Set();
+    for (let k = 0; k <= i; k++) steps[k].show.forEach(id => shown.add(id));
+    const cur = new Set(steps[i].show);
+    all.forEach(id => {
+      const el = document.getElementById(id);
+      el.classList.toggle("shown", shown.has(id));
+      el.classList.toggle("cur", cur.has(id));
+    });
+    narr.textContent = steps[i].narr;
+    ind.textContent = "手順 " + (i + 1) + " / " + steps.length;
+    prev.disabled = i === 0;
+    next.disabled = i === steps.length - 1;
+  }
+  prev.onclick = () => { if (i > 0) { i--; render(); } };
+  next.onclick = () => { if (i < steps.length - 1) { i++; render(); } };
+  render();
+})();
+
+// ---------------- sidebar scroll spy ----------------
+(function () {
+  const links = Array.from(document.querySelectorAll("#sidenav a"));
+  const targets = links.map(a => document.querySelector(a.getAttribute("href")));
+  function spy() {
+    let on = 0;
+    targets.forEach((t, k) => { if (t.getBoundingClientRect().top < 120) on = k; });
+    links.forEach((a, k) => a.classList.toggle("on", k === on));
+  }
+  document.addEventListener("scroll", spy, { passive: true });
+  spy();
+})();
+</script>
+</body>
+</html>

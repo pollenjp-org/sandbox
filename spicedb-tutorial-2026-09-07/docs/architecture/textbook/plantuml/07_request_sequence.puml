@@ -1,0 +1,31 @@
+@startuml
+title アプリから見た SpiceDB とのやり取り — 読みと書きの基本形
+
+actor "クライアント" as c
+participant "アプリ" as app
+database "アプリ DB\n(文書本体)" as db
+participant "SpiceDB\n(スキーマ + relationship)" as sp
+
+== 読み: GET /documents/design (bob) ==
+c -> app : GET /documents/design\n(認証済み: user:bob)
+app -> sp : CheckPermission\n resource: document:design\n permission: view\n subject: user:bob\n consistency: at_least_as_fresh(保存済み token)\n context: {current_time: ...}
+sp --> app : HAS_PERMISSION
+app -> db : 文書本体を SELECT
+db --> app : title / body
+app --> c : 200
+
+== 書き: POST /documents/design/share (alice が carol に viewer) ==
+c -> app : POST .../share\n{subject: user:carol, role: viewer}
+app -> sp : CheckPermission\n (document:design, share, user:alice)
+sp --> app : HAS_PERMISSION
+app -> sp : WriteRelationships\n TOUCH document:design#viewer@user:carol
+sp --> app : **ZedToken t1**
+app -> db : 文書の行に t1 を保存
+app --> c : 200
+
+note over app, sp
+  権限の判定はすべて SpiceDB 側。
+  アプリが決めるのは「この操作はどの permission か」と
+  「返ってきた ZedToken をどこに保存するか」だけ
+end note
+@enduml

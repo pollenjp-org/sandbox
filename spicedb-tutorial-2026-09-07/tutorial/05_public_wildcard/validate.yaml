@@ -1,0 +1,17 @@
+schemaFile: schema.zed
+
+relationships: |-
+  document:handbook#viewer@user:*
+  document:handbook#banned@user:troll
+  document:secret#viewer@user:alice
+
+assertions:
+  assertTrue:
+    # handbook は全員に公開。relationship を 1 本も持たない人でも見られる
+    - "document:handbook#view@user:alice"
+    - "document:handbook#view@user:someone_random"
+  assertFalse:
+    # 公開文書でも banned は見られない
+    - "document:handbook#view@user:troll"
+    # secret は公開していないので alice 以外は見られない
+    - "document:secret#view@user:bob"

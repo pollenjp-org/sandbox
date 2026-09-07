@@ -1,0 +1,17 @@
+// 01: 最初のスキーマ。
+// definition = オブジェクトの型、relation = 誰がどう関わるか、
+// permission = その関わりから導かれる「できること」。
+
+definition user {}
+
+definition document {
+    // 「document には reader と writer がいる」という宣言。
+    // 実際に誰が reader なのかは、スキーマではなく relationship (データ) が持つ。
+    relation reader: user
+    relation writer: user
+
+    // permission はこの時点では relation をそのまま横流ししているだけ。
+    // writer が view できない違和感は 02_operators で解消する。
+    permission view = reader
+    permission edit = writer
+}

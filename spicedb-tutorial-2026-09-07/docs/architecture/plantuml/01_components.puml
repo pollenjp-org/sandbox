@@ -1,0 +1,28 @@
+@startuml
+title repo の構成 — 学習パスの 3 段
+
+rectangle "**tutorial/ 01〜06**\nzed validate の箱庭\n(サーバ不要)" as t1
+rectangle "**tutorial/ 07〜08**\nspicedb serve + zed\n(API と一貫性の実演)" as t2
+rectangle "**app/ docshare**\nGo + authzed-go の\n文書共有 API" as t3
+
+t1 -right-> t2 : 概念が出そろったら
+t2 -right-> t3 : 実装の座り方へ
+
+note bottom of t1
+  スキーマ + データ + 期待値を
+  1 ファイルで検証
+end note
+note bottom of t2
+  check / lookup / explain
+  ZedToken と量子化
+end note
+note bottom of t3
+  スキーマは tutorial の最終形
+  serve-testing で統合テスト
+end note
+
+rectangle "nix devShell (flake.nix + flake.lock)\nspicedb / zed / go 1.27 / jq / curl" as nix #F5F5F5
+t1 .. nix
+t2 .. nix
+t3 .. nix
+@enduml

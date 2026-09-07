@@ -1,0 +1,61 @@
+# docshare スキーマのテスト。scripts/check-all.sh が回す。
+#   nix develop --command zed validate app/schema/validate.yaml
+schemaFile: schema.zed
+
+# 登場人物と世界:
+#   alice: root フォルダの owner (= 全体の管理者相当)
+#   bob:   eng グループのメンバー
+#   dave:  platform グループ (eng に入れ子) のメンバー
+#   carol: design 文書を期限付きで共有されている
+#   troll: 全員公開の handbook から banned で締め出されている
+#   zoe:   何の関係も無い人
+#
+#   root/                    (owner: alice)
+#   ├── eng-docs/            (viewer: eng グループ)
+#   │   └── design           (owner: alice, 期限付き共有: carol)
+#   └── handbook             (公開: user:*, banned: troll)
+relationships: |-
+  group:eng#member@user:bob
+  group:eng#member@group:platform#member
+  group:platform#member@user:dave
+  folder:root#owner@user:alice
+  folder:eng-docs#parent@folder:root
+  folder:eng-docs#viewer@group:eng#member
+  document:design#parent@folder:eng-docs
+  document:design#owner@user:alice
+  document:design#shared_viewer@user:carol[not_expired:{"expires_at":"2026-12-31T00:00:00Z"}]
+  document:handbook#parent@folder:root
+  document:handbook#viewer@user:*
+  document:handbook#banned@user:troll
+
+assertions:
+  assertTrue:
+    # owner は編集できる (直接 owner + root 経由の二重経路がある)
+    - "document:design#edit@user:alice"
+    # eng グループの viewer 指定がフォルダ経由で文書に届く (04 + 03)
+    - "document:design#view@user:bob"
+    # グループの入れ子もたどる (04)
+    - "document:design#view@user:dave"
+    # 期限内の共有 (06)
+    - 'document:design#view@user:carol with {"current_time": "2026-06-01T00:00:00Z"}'
+    # 全員公開 (05)。関係を 1 本も持たない zoe でも見られる
+    - "document:handbook#view@user:zoe"
+    # 文書の新規作成はフォルダの edit 保持者 (alice は root owner 経由)
+    - "folder:eng-docs#create_document@user:alice"
+    - "document:design#share@user:alice"
+  assertFalse:
+    # フォルダ viewer は閲覧のみ。編集はできない
+    - "document:design#edit@user:bob"
+    # 期限切れの共有 (06)
+    - 'document:design#view@user:carol with {"current_time": "2027-06-01T00:00:00Z"}'
+    # banned は公開文書でも見られない (05 + 02 の exclusion)
+    - "document:handbook#view@user:troll"
+    # 無関係の人には何も見えない
+    - "document:design#view@user:zoe"
+    # viewer には文書を作らせない
+    - "folder:eng-docs#create_document@user:bob"
+    # 共有操作は owner 系統だけ
+    - "document:design#share@user:bob"
+  assertCaveated:
+    # current_time を渡さなければ「条件付き」(アプリは必ず渡す実装にしている)
+    - "document:design#view@user:carol"

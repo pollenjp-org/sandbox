@@ -1,0 +1,23 @@
+@startuml
+title check の歩み 1/3 — 問いをサブ問題に分解する
+left to right direction
+
+actor "user:alice" as alice
+actor "user:bob" as bob
+rectangle "group:eng" as eng
+rectangle "folder:root" as root
+rectangle "folder:eng-docs" as engdocs
+rectangle "document:design" as design #FFF2B2
+
+design --> engdocs : parent
+engdocs --> root : parent
+root --> alice : owner
+engdocs --> eng : viewer\n(#member)
+eng --> bob : member
+
+note bottom of design #FFF2B2
+  問い: bob は design を view できるか?
+  view = (viewer + shared_viewer + edit + parent->view) - banned
+  → まず直接の viewer / shared_viewer / edit を見る
+end note
+@enduml

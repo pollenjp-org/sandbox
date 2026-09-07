@@ -1,0 +1,22 @@
+schemaFile: schema.zed
+
+# relationship 側に「期限」を保存する。
+# [caveat名:{JSON}] が書き込み時 context。
+relationships: |-
+  document:plan#owner@user:alice
+  document:plan#shared_viewer@user:bob[not_expired:{"expires_at":"2026-12-31T00:00:00Z"}]
+
+assertions:
+  assertTrue:
+    # owner に条件は無い
+    - "document:plan#view@user:alice"
+    # チェック時 context (with {...}) が現在時刻を渡す。期限内なので見られる
+    - 'document:plan#view@user:bob with {"current_time": "2026-06-01T00:00:00Z"}'
+  assertFalse:
+    # 期限切れ
+    - 'document:plan#view@user:bob with {"current_time": "2027-06-01T00:00:00Z"}'
+  assertCaveated:
+    # context を渡さないと真偽が決まらず「条件付き (CONDITIONAL)」になる。
+    # API では PERMISSIONSHIP_CONDITIONAL_PERMISSION が返り、
+    # 呼び出し側は不足している context を教えてもらえる
+    - "document:plan#view@user:bob"

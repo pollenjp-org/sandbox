@@ -1,0 +1,26 @@
+@startuml
+title 検討した 3 案 (緑 = 採用)
+
+rectangle "案 A\ndocker-compose で\nアプリ一式から入る" as A #EEEEEE
+rectangle "案 B\nWeb Playground を\n教材の中心にする" as B #EEEEEE
+rectangle "案 C (採用)\nzed validate の段階式\n+ 仕上げにアプリ" as C #D5E8D4
+
+A -[hidden]right-> B
+B -[hidden]right-> C
+
+note bottom of A
+  初手でスキーマ / API /
+  一貫性 / クライアントが
+  同時に来て切り分け不能
+end note
+note bottom of B
+  成果物が repo の外。
+  diff で育てられず
+  CI でも検証できない
+end note
+note bottom of C
+  1 章 = 1 概念。
+  サーバ無しで書いたそばから検証。
+  同形式のまま最後は実アプリへ
+end note
+@enduml

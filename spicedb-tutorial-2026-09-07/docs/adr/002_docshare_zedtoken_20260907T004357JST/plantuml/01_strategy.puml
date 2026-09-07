@@ -1,0 +1,26 @@
+@startuml
+title 一貫性の 3 戦略 (緑 = 採用)
+
+rectangle "案 A\nすべての読みを\nfully_consistent" as A #EEEEEE
+rectangle "案 B\n既定 (minimize_latency)\nのまま" as B #EEEEEE
+rectangle "案 C (採用)\nZedToken を資源の行に保存\nat_least_as_fresh で check" as C #D5E8D4
+
+A -[hidden]right-> B
+B -[hidden]right-> C
+
+note bottom of A
+  常に正しいが
+  revision キャッシュが
+  ほぼ無効になる
+end note
+note bottom of B
+  速いが剥奪直後の
+  取りこぼしが原理的に起きる
+  (構築中に観測済み)
+end note
+note bottom of C
+  その資源について
+  「自分が知る最新」を保証。
+  キャッシュも効く (Zanzibar の定石)
+end note
+@enduml

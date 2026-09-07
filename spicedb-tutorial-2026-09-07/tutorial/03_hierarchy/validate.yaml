@@ -1,0 +1,43 @@
+schemaFile: schema.zed
+
+# フォルダ構成:
+#   root/            (owner: alice)
+#   ├── projects/
+#   │   └── design_doc      (viewer: bob)
+#   └── private/     (viewer: carol)
+#       └── secret
+relationships: |-
+  folder:root#owner@user:alice
+  folder:projects#parent@folder:root
+  document:design_doc#parent@folder:projects
+  document:design_doc#viewer@user:bob
+  folder:private#parent@folder:root
+  folder:private#viewer@user:carol
+  document:secret#parent@folder:private
+
+assertions:
+  assertTrue:
+    # alice は root の owner。design_doc まで 2 段の arrow でたどり着く
+    #   design_doc -> parent(projects) -> parent(root) -> owner
+    - "document:design_doc#view@user:alice"
+    - "folder:projects#view@user:alice"
+    # root の下は全部見られるので secret も見られる
+    - "document:secret#view@user:alice"
+    # bob は design_doc に直接 viewer
+    - "document:design_doc#view@user:bob"
+    # carol は private フォルダの viewer なので、その中の secret も見られる
+    - "document:secret#view@user:carol"
+  assertFalse:
+    # carol の権限は private/ 以下に閉じている。隣の projects/ には効かない
+    - "document:design_doc#view@user:carol"
+    - "folder:root#view@user:carol"
+    # bob の viewer は document 単位。フォルダ側には何も無い
+    - "folder:projects#view@user:bob"
+
+# assertions が「誰が何をできるか」の点検なのに対し、validation は
+# 「その権限が どの relationship から来ているか」まで固定する。
+# 期待と違うときは zed validate が正しい内容を提示してくれる。
+validation:
+  "document:design_doc#view":
+    - "[user:alice] is <folder:root#owner>"
+    - "[user:bob] is <document:design_doc#viewer>"

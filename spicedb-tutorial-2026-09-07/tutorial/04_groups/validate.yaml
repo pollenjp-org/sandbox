@@ -1,0 +1,30 @@
+schemaFile: schema.zed
+
+# グループ構成:
+#   eng = { alice } + platform のメンバー全員
+#   platform = { bob }
+#   runbook は eng メンバー全員が viewer
+relationships: |-
+  group:eng#member@user:alice
+  group:platform#member@user:bob
+  group:eng#member@group:platform#member
+  document:runbook#viewer@group:eng#member
+
+assertions:
+  assertTrue:
+    # eng の直接メンバー
+    - "document:runbook#view@user:alice"
+    # platform 経由の間接メンバー (グループの入れ子をたどる)
+    - "document:runbook#view@user:bob"
+  assertFalse:
+    # どのグループにも入っていない
+    - "document:runbook#view@user:carol"
+
+# 展開には「user 個人」だけでなく「group:eng#member という集合」自体も
+# subject として現れる。SpiceDB がメンバーを展開しつつ集合のまま扱っている様子。
+validation:
+  "document:runbook#view":
+    - "[group:eng#member] is <document:runbook#viewer>"
+    - "[group:platform#member] is <group:eng#member>"
+    - "[user:alice] is <group:eng#member>"
+    - "[user:bob] is <group:platform#member>"

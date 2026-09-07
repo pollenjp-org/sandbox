@@ -1,0 +1,23 @@
+// 02: permission は集合演算で組み立てる。
+//   +  union        (どれかに該当すればよい)
+//   &  intersection (両方に該当する人だけ)
+//   -  exclusion    (該当する人を除く)
+
+definition user {}
+
+definition document {
+    relation reader: user
+    relation writer: user
+    relation banned: user
+    // 機密の閲覧には「本人確認済み」であることも要求したい、という想定
+    relation verified: user
+
+    // 01 の違和感の解消: writer も view できるように union する。
+    // その上で banned に入っている人は何があっても除く。
+    permission view = (reader + writer) - banned
+
+    permission edit = writer - banned
+
+    // intersection: 「(reader か writer) かつ verified」の人だけ
+    permission view_sensitive = (reader + writer) & verified
+}

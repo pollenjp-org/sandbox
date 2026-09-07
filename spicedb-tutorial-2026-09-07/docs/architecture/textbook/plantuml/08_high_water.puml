@@ -1,0 +1,34 @@
+@startuml
+title 行の token は止まり、高水位は上がるだけ
+hide time-axis
+scale 1 as 170 pixels
+
+concise "書き込みイベント" as EV
+robust "高水位 (プロセスで 1 つ)" as HW
+robust "design の行の token" as D
+robust "roadmap の行の token" as R
+
+@0
+EV is "起動 WriteSchema→r2"
+HW is r2
+D is 空
+R is 空
+
+@1
+EV is "roadmap 作成→r3"
+R is r3
+HW is r3
+
+@2
+EV is "design 共有→r5"
+D is r5
+HW is r5
+
+@3
+EV is "design 剥奪→r6"
+D is r6
+HW is r6
+
+@4
+EV is {hidden}
+@enduml

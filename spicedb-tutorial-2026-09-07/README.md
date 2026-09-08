@@ -19,6 +19,7 @@ nix develop                 # spicedb / zed / go 1.27 / jq / curl が揃う
 | [tutorial/](./tutorial/README.md) | 1 章 1 概念のチュートリアル 8 章。01〜06 はサーバ不要で `zed validate` 完結、07〜08 は実演スクリプト付き |
 | [app/](./app/README.md) | 応用: Go + authzed-go の文書共有 API (docshare)。`./app/run.sh` → `./app/demo.sh` で動く |
 | [docs/](./docs/README.md) | [textbook (教科書 8 章)](./docs/architecture/textbook/README.md)・[ADR](./docs/adr/README.md)・[architecture](./docs/architecture/README.md) |
+| [video/](./video/README.md) | 教材を約 8 分で駆け抜ける解説動画の生成パイプライン (VOICEVOX + HTML レンダリング)。`./video/render-all.sh` 一発 |
 
 ## 学び方
 

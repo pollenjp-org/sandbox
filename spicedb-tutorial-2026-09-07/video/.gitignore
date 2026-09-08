@@ -1,0 +1,3 @@
+# パイプラインの生成物 (render-all.sh で作り直せる)
+build/
+out/

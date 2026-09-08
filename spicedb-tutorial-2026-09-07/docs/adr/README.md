@@ -4,3 +4,4 @@
 | --- | --- | --- |
 | [001](./001_learning_path_20260907T004350JST/README.md) | 学習パスを「zed validate の箱庭 → サーバ → 応用アプリ」の 3 段にする | 2026-09-07 |
 | [002](./002_docshare_zedtoken_20260907T004357JST/README.md) | docshare は ZedToken を資源の行に保存し at_least_as_fresh を既定にする | 2026-09-07 |
+| [003](./003_explainer_video_20260907T195702JST/README.md) | 教材解説動画を VOICEVOX + HTML の決定論的レンダリングで自動生成する | 2026-09-07 |

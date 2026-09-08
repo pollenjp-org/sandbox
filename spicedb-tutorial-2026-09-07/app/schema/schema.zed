@@ -1,0 +1,49 @@
+// docshare のスキーマ。tutorial 01〜06 の部品が全部入っている。
+//   02: 演算子 (+ / - )        04: group#member
+//   03: parent-> の階層継承     05: user:* (全員公開)
+//   06: caveat (期限付き共有)
+// 変更したら schema/validate.yaml も直し、zed validate で検証すること。
+
+definition user {}
+
+definition group {
+    // メンバーは user 個人、または別グループの member 全員 (入れ子可)
+    relation member: user | group#member
+}
+
+// 期限付き共有リンク用。expires_at は relationship 側 (共有時に保存)、
+// current_time はチェック時にアプリが渡す。
+caveat not_expired(current_time timestamp, expires_at timestamp) {
+    current_time < expires_at
+}
+
+definition folder {
+    relation parent: folder
+    relation owner: user
+    relation editor: user | group#member
+    relation viewer: user | group#member
+
+    // 上位フォルダで編集できる人は下位でも編集できる (parent-> の再帰)
+    permission edit = owner + editor + parent->edit
+    permission view = viewer + edit + parent->view
+    // 共有 (他人への権限付与) は owner 系統だけに許す
+    permission share = owner + parent->share
+    // 文書の新規作成は「そのフォルダを編集できる人」
+    permission create_document = edit
+}
+
+definition document {
+    relation parent: folder
+    relation owner: user
+    relation editor: user | group#member
+    // viewer は個人・グループ・全員公開 (user:*) を全部受け付ける
+    relation viewer: user | group#member | user:*
+    // 期限付き共有は別 relation に分ける (無期限の viewer と混ぜない)
+    relation shared_viewer: user with not_expired
+    relation banned: user
+
+    // banned はどの経路より強い (公開文書からも締め出す)
+    permission edit = (owner + editor + parent->edit) - banned
+    permission view = (viewer + shared_viewer + edit + parent->view) - banned
+    permission share = (owner + parent->share) - banned
+}

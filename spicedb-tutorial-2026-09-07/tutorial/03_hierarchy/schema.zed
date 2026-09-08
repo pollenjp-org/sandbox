@@ -1,0 +1,23 @@
+// 03: arrow (->) で階層をたどる。
+// 「フォルダを見られる人は、その中の文書も見られる」を実現する。
+
+definition user {}
+
+definition folder {
+    // フォルダは別のフォルダの中に入れられる (親は 1 つの想定)
+    relation parent: folder
+    relation owner: user
+    relation viewer: user
+
+    // parent->view = 「parent 関係の先のオブジェクトで view 権限を評価する」。
+    // 親フォルダの view にも parent->view が入っているので、
+    // 結果として何段でも上へたどっていくことになる (再帰)。
+    permission view = viewer + owner + parent->view
+}
+
+definition document {
+    relation parent: folder
+    relation viewer: user
+
+    permission view = viewer + parent->view
+}

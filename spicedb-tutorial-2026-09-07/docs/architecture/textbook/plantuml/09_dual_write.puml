@@ -1,0 +1,29 @@
+@startuml
+title 二重書き込み問題 — 2 つの書き込みの間で落ちたら
+
+participant "アプリ" as app
+participant "SpiceDB" as sp
+database "アプリ DB" as db
+
+== 文書作成は 2 つの書き込み (順序: SpiceDB が先) ==
+app -> sp : ① WriteRelationships\n (owner / parent を TOUCH)
+sp --> app : ZedToken t
+app ->x db : ② 本体を保存 … の前にプロセスが落ちた
+note over app, db #FFCCCC
+  残るのは①だけ = 「アプリ DB に本体が無い文書」への relationship (孤児)。
+  誰の画面にも出ないゴミで済む。
+  逆順 (DB が先) だと「本体はあるのに誰の権限も無い行」が残り、
+  作れたはずの文書がユーザーから消える。**だから SpiceDB が先**
+end note
+
+== 復旧: 冪等な再試行 ==
+app -> sp : ①' 同じ TOUCH をもう一度
+note right : TOUCH は冪等 —\n「最終的にある」なので何度でも安全
+sp --> app : ZedToken t'
+app -> db : ②' 本体を保存 (成功)
+note over app, db #D5E8D4
+  作成 API 全体を再試行可能にしておけば、孤児は次の試行で回収される。
+  それでも残る分は、定期の突き合わせ (リコンサイル) か
+  outbox (DB のトランザクションに書き込み予定を積んで非同期反映) で拾う
+end note
+@enduml

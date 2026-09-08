@@ -1,0 +1,26 @@
+@startuml
+title 認可の世界はグラフ — docshare の例
+left to right direction
+
+actor "user:alice" as alice
+actor "user:bob" as bob
+actor "全員\n(user:*)" as star
+rectangle "group:eng" as eng
+rectangle "folder:root" as root
+rectangle "folder:eng-docs" as engdocs
+rectangle "document:design" as design
+rectangle "document:handbook" as handbook
+
+design --> engdocs : parent
+engdocs --> root : parent
+handbook --> root : parent
+root --> alice : owner
+engdocs --> eng : viewer\n(#member)
+eng --> bob : member
+handbook --> star : viewer
+
+note bottom of design
+  辺 1 本 = relationship 1 本
+  例: document:design#parent@folder:eng-docs
+end note
+@enduml

@@ -6,8 +6,10 @@
 #   /sandbox/book-mindmap-explorer-2026-05-03/      -> Vite + React の book mind map explorer
 #   /sandbox/html-text-extractor-2026-05-04/        -> Vite + React の HTML text extractor
 #   /sandbox/image-compressor-2026-07-15/           -> Vite + React の画像・PDF 圧縮ツール
+#   /sandbox/spicedb-tutorial-2026-09-07/           -> SpiceDB 教科書の HTML 版 (1 ファイル完結)
 #
 # rust-leptos は既に dist-release/ が git にコミットされているのでビルド不要。
+# spicedb-tutorial も HTML 1 枚を置くだけなのでビルド不要。
 # book mind map / html-text-extractor / image-compressor は npm でビルドし、サブディレクトリに配置する。
 name: Deploy static content to Pages
 
@@ -87,6 +89,10 @@ jobs:
           # image-compressor をサブディレクトリに配置
           mkdir -p _site/image-compressor-2026-07-15
           cp -r image-compressor-2026-07-15/dist/. _site/image-compressor-2026-07-15/
+          # spicedb-tutorial の textbook HTML 版を index.html として配置 (ビルド不要)
+          mkdir -p _site/spicedb-tutorial-2026-09-07
+          cp spicedb-tutorial-2026-09-07/docs/architecture/textbook/html/textbook.html \
+            _site/spicedb-tutorial-2026-09-07/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

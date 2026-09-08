@@ -1,0 +1,24 @@
+@startuml
+title check の歩み 3/3 — 経路が見つかれば true
+left to right direction
+
+actor "user:alice" as alice
+actor "user:bob" as bob #D5E8D4
+rectangle "group:eng" as eng #D5E8D4
+rectangle "folder:root" as root
+rectangle "folder:eng-docs" as engdocs #D5E8D4
+rectangle "document:design" as design #D5E8D4
+
+design -[#228B22,bold]-> engdocs : parent
+engdocs --> root : parent
+root --> alice : owner
+engdocs -[#228B22,bold]-> eng : viewer\n(#member)
+eng -[#228B22,bold]-> bob : member
+
+note bottom of design #D5E8D4
+  eng-docs の viewer は group:eng#member という集合。
+  member を展開すると bob に届く。
+  経路が存在する → HAS_PERMISSION (true)。
+  この経路は zed permission check --explain で見られる
+end note
+@enduml

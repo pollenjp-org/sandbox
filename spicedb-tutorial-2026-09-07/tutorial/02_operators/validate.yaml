@@ -1,0 +1,24 @@
+schemaFile: schema.zed
+
+relationships: |-
+  document:doc1#reader@user:alice
+  document:doc1#verified@user:alice
+  document:doc1#writer@user:bob
+  document:doc1#reader@user:eve
+  document:doc1#banned@user:eve
+
+assertions:
+  assertTrue:
+    # reader の alice は view できる
+    - "document:doc1#view@user:alice"
+    # union のおかげで writer の bob も view できるようになった (01 との違い)
+    - "document:doc1#view@user:bob"
+    - "document:doc1#edit@user:bob"
+    # alice は reader かつ verified なので機密も見られる
+    - "document:doc1#view_sensitive@user:alice"
+  assertFalse:
+    # eve は reader だが banned が優先される (exclusion)
+    - "document:doc1#view@user:eve"
+    # bob は writer だが verified ではないので機密は見られない (intersection)
+    - "document:doc1#view_sensitive@user:bob"
+    - "document:doc1#edit@user:alice"

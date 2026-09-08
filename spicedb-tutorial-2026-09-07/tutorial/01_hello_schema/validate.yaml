@@ -1,0 +1,24 @@
+# zed validate 用の検証ファイル (SpiceDB Playground と同じ形式)。
+#   nix develop --command zed validate validate.yaml
+schemaFile: schema.zed
+
+# relationship は「document:doc1 の reader は user:alice」を表すタプル。
+# <resource_type>:<id>#<relation>@<subject_type>:<id>
+relationships: |-
+  document:doc1#reader@user:alice
+  document:doc1#writer@user:bob
+
+assertions:
+  assertTrue:
+    # reader の alice は view できる
+    - "document:doc1#view@user:alice"
+    # writer の bob は edit できる
+    - "document:doc1#edit@user:bob"
+  assertFalse:
+    # writer の bob は view でき「ない」。view = reader としか書いていないから。
+    # 直感に反するが、SpiceDB は書いたとおりにしか動かない (02 で直す)
+    - "document:doc1#view@user:bob"
+    # reader の alice は edit できない
+    - "document:doc1#edit@user:alice"
+    # 何の relationship も無い carol は何もできない
+    - "document:doc1#view@user:carol"

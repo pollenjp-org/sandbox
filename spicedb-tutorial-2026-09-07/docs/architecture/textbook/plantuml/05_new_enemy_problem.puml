@@ -1,0 +1,24 @@
+@startuml
+title New Enemy 問題 — 剥奪が check に追い越される
+
+actor alice
+participant "アプリ" as app
+participant "SpiceDB" as sp
+actor bob
+
+alice -> app : ① bob をフォルダから外す
+app -> sp : WriteRelationships (DELETE viewer)
+sp --> app : OK (ZedToken t1)
+alice -> app : ② 機密文書 secret を置く
+app -> sp : WriteRelationships (CREATE secret)
+sp --> app : OK (ZedToken t2)
+bob -> app : ③ GET /documents/secret
+app -> sp : Check(secret, view, bob)\nconsistency 指定なし
+note right of sp #FFCCCC
+  量子化窓の中の古い revision で評価
+  = ①②が起きる前の世界
+  = bob がまだ viewer だった世界
+end note
+sp --> app : true
+app --> bob : 200 — **見えてしまう**
+@enduml

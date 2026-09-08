@@ -1,0 +1,8 @@
+// 08: 一貫性の実験用。中身は最小限でよい。
+
+definition user {}
+
+definition document {
+    relation viewer: user
+    permission view = viewer
+}

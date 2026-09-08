@@ -1,0 +1,19 @@
+// 04: グループ (subject relation)。
+// 「この文書は eng グループの全員が見られる」を、メンバー数ぶんの
+// relationship を書かずに 1 本で表す。
+
+definition user {}
+
+definition group {
+    // メンバーは user 個人、または「別グループの member 全員」(入れ子)
+    relation member: user | group#member
+}
+
+definition document {
+    // viewer には user 個人も「グループの member 全員」も置ける。
+    // `group#member` の #member が肝で、「group そのもの」ではなく
+    // 「group の member という集合」を指している。
+    relation viewer: user | group#member
+
+    permission view = viewer
+}

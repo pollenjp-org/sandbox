@@ -1,0 +1,5 @@
+# go build の成果物
+/app/bin/
+
+# walkthrough script が吐く実行時ログ
+*.log

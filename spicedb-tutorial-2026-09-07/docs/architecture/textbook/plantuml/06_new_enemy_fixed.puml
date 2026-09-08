@@ -1,0 +1,27 @@
+@startuml
+title ZedToken で防ぐ — 「この時点以降で評価して」
+
+actor alice
+participant "アプリ" as app
+database "アプリDB" as db #D5E8D4
+participant "SpiceDB" as sp
+actor bob
+
+alice -> app : ① bob をフォルダから外す
+app -> sp : WriteRelationships (DELETE viewer)
+sp --> app : OK (**ZedToken t1**)
+app -> db : フォルダの行に t1 を保存
+alice -> app : ② 機密文書 secret を置く
+app -> sp : WriteRelationships (CREATE secret)
+sp --> app : OK (**ZedToken t2**)
+app -> db : secret の行に t2 を保存
+bob -> app : ③ GET /documents/secret
+app -> db : secret の行から t2 を取り出す
+app -> sp : Check(secret, view, bob)\n**at_least_as_fresh(t2)**
+note right of sp #D5E8D4
+  t2 = ①②を含む世界以降で評価。
+  剥奪が必ず反映される
+end note
+sp --> app : false
+app --> bob : 404 — 漏れない
+@enduml

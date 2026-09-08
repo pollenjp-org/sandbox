@@ -1,0 +1,38 @@
+@startuml
+title docshare — 共有から閲覧まで (ZedToken の保存が肝)
+
+actor alice
+participant "httpapi" as api
+participant "authz\n(SpiceDB クライアント)" as az
+database "store\n(文書 + ZedToken)" as st
+participant SpiceDB as sp
+
+== alice が carol に共有する ==
+alice -> api : POST /documents/design/share\n{subject: user:carol, role: viewer}
+api -> st : Get(design)
+st --> api : doc (ZedToken=t0)
+api -> az : CheckDocument(design, share, alice, t0)
+az -> sp : CheckPermission\n(at_least_as_fresh t0)
+sp --> az : HAS_PERMISSION
+api -> az : GrantDocumentRole(design, user:carol, viewer)
+az -> sp : WriteRelationships (TOUCH)
+sp --> az : **ZedToken t1**
+api -> st : SetZedToken(design, **t1**)
+api --> alice : 200
+
+== carol が直後に読む ==
+actor carol
+carol -> api : GET /documents/design
+api -> st : Get(design)
+st --> api : doc (ZedToken=**t1**)
+api -> az : CheckDocument(design, view, carol, **t1**)
+az -> sp : CheckPermission\n(at_least_as_fresh **t1**)
+note right of sp
+  t1 以上に新しい世界で評価するので
+  直前の共有が必ず見える。
+  剥奪 (unshare) も同じ形で、
+  直後の check から必ず false になる
+end note
+sp --> az : HAS_PERMISSION
+api --> carol : 200
+@enduml

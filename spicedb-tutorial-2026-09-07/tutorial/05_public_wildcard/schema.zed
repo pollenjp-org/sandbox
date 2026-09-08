@@ -1,0 +1,14 @@
+// 05: wildcard (user:*) で「全員に公開」を表す。
+
+definition user {}
+
+definition document {
+    // `user:*` を許すと「user 型の全員」という relationship を書けるようになる。
+    // 型に `user:*` を足しただけでは何も公開されない。
+    // relationship として `@user:*` を書いた文書だけが公開される。
+    relation viewer: user | user:*
+    relation banned: user
+
+    // 公開文書でも banned は除ける (wildcard も exclusion の対象になる)
+    permission view = viewer - banned
+}

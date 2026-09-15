@@ -1,0 +1,33 @@
+[tools]
+rust = "1.88.0"
+
+[env]
+RUST_BACKTRACE = "1"
+
+[tasks.build]
+description = "cargo build"
+run = "cargo build --all-targets"
+
+[tasks.test]
+description = "cargo test"
+run = "cargo test --all-targets --all-features"
+
+[tasks.lint]
+description = "cargo clippy with -D warnings"
+run = "cargo clippy --all-targets --all-features -- -D warnings"
+
+[tasks.fmt]
+description = "cargo fmt"
+run = "cargo fmt --all"
+
+[tasks."fmt:check"]
+description = "cargo fmt --check"
+run = "cargo fmt --all -- --check"
+
+[tasks.check]
+description = "all CI checks"
+depends = ["fmt:check", "lint", "test"]
+
+[tasks.run]
+description = "run migrator (requires EVERNOTE_DEV_TOKEN, NOTION_TOKEN, NOTION_DATABASE_ID, EVERNOTE_NOTESTORE_URL)"
+run = "cargo run --release --"

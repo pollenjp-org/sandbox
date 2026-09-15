@@ -1,0 +1,20 @@
+@startwbs 06_folder_tree_traversal
+title フォルダツリーと走査順(幅優先探索)
+skinparam defaultFontName "Noto Sans CJK JP"
+skinparam shadowing false
+
+* ルートフォルダ【1 番目】
+** report.pdf(ファイル)
+** フォルダ A【2 番目】
+*** 設計書.docx(ファイル)
+*** フォルダ A-1【4 番目】
+**** old_memo.txt(ファイル)
+** フォルダ B【3 番目】
+*** 予算.xlsx(ファイル)
+
+legend bottom
+処理順: ルート → A → B → A-1(同じ深さを先に処理する = 幅優先探索)
+キューの変化: [ルート] → [A, B] → [B, A-1] → [A-1] → [](空になったら完了)
+各フォルダでは「直下のファイル → サブフォルダの発見・追加」の順に処理する
+endlegend
+@endwbs

@@ -1,0 +1,17 @@
+@startuml 04_state_machine
+title 実行状態の遷移
+skinparam defaultFontName "Noto Sans CJK JP"
+skinparam shadowing false
+
+state "未実行 (Idle)" as Idle
+state "実行中 (Running)" as Running
+state "再開待ち (Waiting)" as Waiting
+
+[*] --> Idle
+Idle --> Running : メニュー「開始」\n(ツリー走査 / 検索走査)
+Running --> Waiting : 制限時間が近づいた\n(状態保存 + トリガー予約)
+Waiting --> Running : 約 60 秒後に\nresumeTransfer() が自動起動
+Running --> Idle : 全件処理完了\n(状態クリア + トリガー削除)
+Running --> Idle : メニュー「停止(リセット)」
+Waiting --> Idle : メニュー「停止(リセット)」
+@enduml

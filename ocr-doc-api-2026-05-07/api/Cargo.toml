@@ -1,0 +1,33 @@
+[package]
+name = "ocr-doc-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = { version = "0.7", features = ["multipart", "macros"] }
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["trace", "limit"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+thiserror = "2"
+anyhow = "1"
+bytes = "1"
+mime = "0.3"
+async-trait = "0.1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
+google-cloud-storage = "0.22"
+google-cloud-pubsub = "0.29"
+google-cloud-auth = "0.17"
+google-cloud-googleapis = "0.15"
+futures-util = "0.3"
+time = { version = "0.3", features = ["serde", "formatting"] }
+clap = { version = "4", features = ["derive", "env"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

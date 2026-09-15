@@ -1,0 +1,20 @@
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant FE as Frontend
+    participant BE as Backend
+    participant DB as Database
+    participant IdP as Identity Provider
+
+    U->>FE: Click "Login"
+    FE->>IdP: Redirect to OAuth
+    IdP-->>U: Show login form
+    U->>IdP: Submit credentials
+    IdP-->>FE: Redirect with code
+    FE->>BE: POST /auth/callback (code)
+    BE->>IdP: Exchange code for token
+    IdP-->>BE: access_token, id_token
+    BE->>DB: Upsert user
+    DB-->>BE: user row
+    BE-->>FE: Set session cookie
+    FE-->>U: Show dashboard

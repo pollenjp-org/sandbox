@@ -1,0 +1,12 @@
+flowchart LR
+    A[Push to main] --> B{Lint & Test}
+    B -- fail --> X[Notify Slack]
+    B -- pass --> C[Build image]
+    C --> D[Push to ECR]
+    D --> E{Env?}
+    E -- staging --> F[Deploy to staging]
+    E -- prod --> G[Manual approval]
+    G --> H[Deploy to prod]
+    F --> I[Run smoke tests]
+    H --> I
+    I --> J[Done]

@@ -1,5 +1,9 @@
 [tools]
-uv = "0.9.27"
+uv = "0.13.5"
+
+[env]
+# uv >= 0.13 picks CPython 3.15 when no Python is installed, but uv.lock has no cp315 wheels (numpy, pandas, ...)
+UV_PYTHON = "3.14"
 
 [tasks.fmt]
 run = ["uv run ruff check --fix", "uv format"]

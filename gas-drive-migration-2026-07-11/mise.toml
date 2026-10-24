@@ -6,7 +6,8 @@
 
 [tools]
 node = "22"
-pnpm = "10"
+# package.json の packageManager と同じ版にする
+pnpm = "11.28.8"
 
 [tasks.setup]
 description = "依存パッケージをインストール (pnpm install)"

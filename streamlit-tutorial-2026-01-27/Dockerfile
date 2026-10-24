@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # https://github.com/astral-sh/uv/pkgs/container/uv
-COPY --from=ghcr.io/astral-sh/uv:0.9.27-python3.12-trixie /usr/local/bin/uv /usr/local/bin/uvx /usr/local/bin/
+COPY --from=ghcr.io/astral-sh/uv:0.13.5-python3.12-trixie /usr/local/bin/uv /usr/local/bin/uvx /usr/local/bin/
 
 WORKDIR /app
 COPY pyproject.toml uv.lock ./

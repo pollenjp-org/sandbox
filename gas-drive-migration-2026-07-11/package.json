@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "マイドライブ → 別ドメイン共有ドライブ 移行用 Google Apps Script (clasp + TypeScript)",
-  "packageManager": "pnpm@10.33.0",
+  "packageManager": "pnpm@11.28.8",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc && node -e \"require('fs').copyFileSync('src/appsscript.json','dist/appsscript.json')\""

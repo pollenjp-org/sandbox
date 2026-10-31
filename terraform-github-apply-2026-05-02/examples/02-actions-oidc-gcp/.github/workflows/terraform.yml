@@ -1,0 +1,74 @@
+name: terraform-gcp
+
+on:
+  pull_request:
+    paths: ["terraform/**"]
+  push:
+    branches: [main]
+    paths: ["terraform/**"]
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: tf-gcp-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  TF_VERSION: "1.9.5"
+
+jobs:
+  plan:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment: dev
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          # 例: projects/123/locations/global/workloadIdentityPools/github/providers/gh-oidc
+          service_account: ${{ vars.GCP_PLAN_SA }}
+          # 例: tf-plan@my-project.iam.gserviceaccount.com
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - run: terraform init
+      - run: terraform plan -no-color -out=tfplan
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: terraform/tfplan
+
+  apply:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: []
+    runs-on: ubuntu-latest
+    environment: prd
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_APPLY_SA }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - run: terraform init
+      - run: terraform apply -auto-approve
